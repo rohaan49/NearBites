@@ -2,10 +2,16 @@
 .venv/
 raw/
 dataset/
-runs/
+runs/*
+!runs/baseline/
+runs/baseline/*
+!runs/baseline/weights/
 reports/errors/
 !reports/report.md
 !reports/metrics.json
 *.pt
+!runs/baseline/weights/best.pt
+!runs/baseline/weights/last.pt
+!runs/baseline/results.csv
 *.log
 __pycache__/
