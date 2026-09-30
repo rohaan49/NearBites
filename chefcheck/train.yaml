@@ -1,0 +1,50 @@
+# Reproducible training config. Every knob that affects the result lives here.
+model: yolo11s.pt      # small pretrained baseline first, per spec; scale up only after this converges
+data: dataset/data.yaml
+epochs: 120
+patience: 25           # early stopping
+imgsz: 640
+# Fraction of GPU memory -> Ultralytics AutoBatch sizes the batch itself.
+# CAVEAT on a shared GPU: AutoBatch computes "free" from PyTorch's own reserved bytes and
+# ignores other processes, so it over-reserves, OOMs, and falls back to a tiny batch.
+# If another job is on the card, pass an explicit size: train.py --set batch=64
+batch: 0.80
+device: 0
+workers: 12
+seed: 0
+deterministic: true
+# Pinned, NOT 'auto' -- 'auto' silently discards lr0/momentum, so those knobs do nothing
+# until the optimizer is named explicitly.
+#
+# lr0 is 0.001, not YOLO's usual 0.01. Two runs at lr0=0.01 (MuSGD and SGD alike) both
+# diverged at exactly epoch 3, the epoch warmup finishes ramping lr to lr0: training loss
+# started rising and mAP50 collapsed (0.72 -> 0.54 -> 0.31). That is a learning rate too
+# high for fine-tuning pretrained weights on this data, not an optimizer problem.
+# If you raise lr0, watch train/box_loss and train/cls_loss at epochs 3-5: rising = diverging.
+optimizer: AdamW
+lr0: 0.001
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3.0
+cos_lr: true
+val: true              # validate every epoch; best.pt is kept automatically
+plots: true
+project: runs
+name: baseline
+exist_ok: true
+
+# Augmentation tuned for kitchens, not for leaderboard speed:
+# real footage is dim, tilted, and colour-cast, so we train through that.
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.5             # raised: kitchen lighting swings hard
+degrees: 10.0
+translate: 0.1
+scale: 0.5
+fliplr: 0.5
+flipud: 0.0            # chefs are not upside down
+mosaic: 1.0
+close_mosaic: 15       # last 15 epochs see undistorted images
+mixup: 0.1
+erasing: 0.4           # partial occlusion, which the spec calls for explicitly

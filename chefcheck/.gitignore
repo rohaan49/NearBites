@@ -1,0 +1,11 @@
+.env
+.venv/
+raw/
+dataset/
+runs/
+reports/errors/
+!reports/report.md
+!reports/metrics.json
+*.pt
+*.log
+__pycache__/

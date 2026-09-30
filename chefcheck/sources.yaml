@@ -1,0 +1,89 @@
+# Real public datasets only. Every entry is a live Roboflow Universe project (CC BY 4.0).
+# prepare_dataset.py reads ONLY this file -- no source is hard-coded in Python.
+#
+# class_map: regex, case-insensitive, fullmatch against the SOURCE class name -> our id
+#   0 = hairnet, 1 = glove.  Unmatched source classes are dropped (their boxes vanish,
+#   the image is still kept when keep_negatives is true -- that is how we get real
+#   "chef without a hairnet" / "chef without gloves" negatives).
+#
+# Deliberate mapping decisions:
+#   bouffant_cap / Hair_Cover -> hairnet   (a bouffant cap IS a hairnet)
+#   chef-cap / helmet / hardhat -> DROPPED (spec: do not label hats as hairnets)
+#   bare_hand / Front_Palm / Back_Palm / no_glove -> DROPPED (do not label bare hands)
+#   no_hairnet / nohairnet -> DROPPED (box sits on a bare head, not on a hairnet)
+
+classes: [hairnet, glove]
+
+sources:
+  # -- backbone: 31k kitchen images, both classes, un-augmented, explicit negatives --
+  - name: kitchen_hygiene_gear
+    workspace: seniorproject-y8seu
+    project: kitchen-hygiene-gear
+    version: 5
+    class_map: {'hairnet': 0, 'glove': 1}
+    keep_negatives: true
+
+  # -- food-safety domain, both classes --
+  - name: safety_food
+    workspace: safety-food-system
+    project: safety-food
+    version: 3
+    class_map: {'hairnet': 0, 'gloves?': 1}
+    keep_negatives: true
+
+  # -- hairnet-heavy --
+  - name: pilasa_hairnet
+    workspace: pilasa
+    project: hairnet-7rn33
+    version: 9
+    class_map: {'hairnet': 0}
+    keep_negatives: true
+
+  - name: sabina_hairnet
+    workspace: sabina-jashir
+    project: hairnet-detection
+    version: 3
+    class_map: {'hairnet': 0}
+    keep_negatives: true
+
+  # -- glove vs bare hand: the hardest confusion for this model --
+  - name: glove_vs_barehand
+    workspace: glove-detection-3vldq
+    project: glove-hand-and-bare-hand-zwvif
+    version: 3
+    class_map: {'glove_hand': 1}
+    keep_negatives: true
+
+  # -- food-prep hygiene gear, glove-heavy, bouffant caps --
+  - name: hygiene_check
+    workspace: danny-joel-5ledp
+    project: hygiene-check
+    version: 1
+    class_map: {'bouffant_cap': 0, 'gloves?': 1}
+    keep_negatives: true
+
+  - name: gear_chef
+    workspace: annotation-jvyum
+    project: gear-chef
+    version: 1
+    class_map: {'hairnet': 0, 'glove': 1}
+    keep_negatives: true
+
+  - name: food_processing
+    workspace: bio-safety-el
+    project: food-processing
+    version: 1
+    class_map: {'hair_cover': 0, 'hand_gloves': 1}
+    keep_negatives: true
+
+# Re-split from scratch. Grouped by the pre-augmentation source image so Roboflow's
+# augmented duplicates cannot leak across splits.
+split:
+  train: 0.70
+  val: 0.20
+  test: 0.10
+  seed: 1337
+  # keep_negatives pulls in every "no hairnet / no gloves" frame; after their boxes are
+  # dropped those images are pure background, and unchecked that was 57% of the dataset.
+  # Ultralytics guidance is ~10%. Positives are never dropped, only surplus negatives.
+  max_background_fraction: 0.15

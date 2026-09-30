@@ -1,0 +1,14 @@
+# Exact versions this pipeline was built, trained and evaluated on.
+# torch/torchvision are the cu126 builds:
+#   pip install torch==2.14.0 torchvision==0.29.0 --index-url https://download.pytorch.org/whl/cu126
+#   pip install -r requirements.txt
+ultralytics==8.4.163
+roboflow==1.5.1
+torch==2.14.0
+torchvision==0.29.0
+numpy==2.2.6
+PyYAML==6.0.3
+Pillow==12.3.0
+fastapi==0.141.1
+uvicorn==0.54.0
+python-multipart==0.0.32
