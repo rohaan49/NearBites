@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Home, Search, ShoppingBag, ClipboardList, User, BarChart3 } from "lucide-react";
+import { Home, Search, ShoppingBag, ClipboardList, User, BarChart3, BookOpen } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import type { ReactNode } from "react";
@@ -7,18 +7,24 @@ import type { ReactNode } from "react";
 export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { count, addPulse, role } = useCart();
-  const { user, logout } = useAuth();
+  const { user, logout, switchWorkspace } = useAuth();
   const navigate = useNavigate();
+  const sellerMode = Boolean(user && user.role !== "admin" && (role === "vendor" || role === "both"));
 
-  const nav = [
+  const buyerNav = [
     { to: "/", label: "Home", icon: Home },
     { to: "/search", label: "Search", icon: Search },
     { to: "/cart", label: "Cart", icon: ShoppingBag, badge: count },
     { to: "/orders", label: "Orders", icon: ClipboardList },
-    role === "vendor" || role === "both" || user?.role === "seller"
-      ? { to: "/dashboard", label: "Kitchen", icon: BarChart3 }
-      : { to: "/account", label: "Me", icon: User },
+    { to: "/account", label: "Me", icon: User },
   ] as const;
+  const sellerNav = [
+    { to: "/dashboard", label: "Kitchen", icon: BarChart3 },
+    { to: "/insights", label: "Insights", icon: BarChart3 },
+    { to: "/seller-training", label: "Training", icon: BookOpen },
+    { to: "/account", label: "Me", icon: User },
+  ] as const;
+  const nav = sellerMode ? sellerNav : buyerNav;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -61,8 +67,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {user ? (
             <div className="flex items-center gap-2">
+              {user.role !== "admin" && <button type="button" onClick={async () => {
+                const next = sellerMode ? "buyer" : "seller";
+                try {
+                  await switchWorkspace(next);
+                  navigate({ to: next === "seller" ? "/dashboard" : "/" });
+                } catch {
+                  navigate({ to: "/choose-mode" });
+                }
+              }} className="text-xs px-3 py-1.5 rounded-full border border-border bg-card font-semibold text-primary">{sellerMode ? "Switch to buying" : "Switch to selling"}</button>}
               <Link to="/account" className="hidden sm:inline text-xs px-3 py-1.5 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition">
-                {user.name.split(" ")[0]} · {user.role === "admin" ? "Admin" : user.role === "seller" ? "Vendor" : "Foodie"}
+                {user.name.split(" ")[0]} · {user.role === "admin" ? "Admin" : sellerMode ? "Seller" : "Buyer"}
               </Link>
               <button
                 onClick={async () => {

@@ -1,14 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useAuth, type AuthRole } from "@/lib/auth";
-import { useCart } from "@/lib/cart";
-import { ChefHat, GraduationCap } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
       { title: "Create your account — near bites" },
-      { name: "description", content: "Sign up as a foodie or a home vendor and start using near bites." },
+      { name: "description", content: "One account for buying food and managing a home kitchen." },
       { property: "og:title", content: "Create your account — near bites" },
       { property: "og:description", content: "Sign up as a foodie or a home vendor and start using near bites." },
       { property: "og:type", content: "website" },
@@ -25,9 +23,7 @@ const input =
 
 function SignupPage() {
   const { signup } = useAuth();
-  const { setRole } = useCart();
   const navigate = useNavigate();
-  const [role, setLocalRole] = useState<AuthRole>("buyer");
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -46,8 +42,7 @@ function SignupPage() {
     if (Object.keys(err).length) return;
 
     try {
-      await signup({ name: form.name.trim(), email: form.email.trim(), password: form.password, role });
-      setRole(role === "seller" ? "vendor" : "student");
+      await signup({ name: form.name.trim(), email: form.email.trim(), password: form.password, role: "buyer" });
       navigate({ to: "/verify-email" });
     } catch (error) {
       setErrors({ form: error instanceof Error ? error.message : "Could not create account" });
@@ -55,27 +50,8 @@ function SignupPage() {
   };
 
   return (
-    <AuthLayout title="Create your account" subtitle="Real desi home cooking, a few taps away.">
-      <div className="grid grid-cols-2 gap-2 p-1 bg-secondary rounded-2xl">
-        {([
-          { id: "buyer" as const, label: "I'm a Buyer", Icon: GraduationCap },
-          { id: "seller" as const, label: "I'm a Vendor", Icon: ChefHat },
-        ]).map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setLocalRole(t.id)}
-            className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition ${
-              role === t.id ? "bg-gradient-spice text-primary-foreground shadow-warm" : "text-muted-foreground"
-            }`}
-          >
-            <t.Icon className="h-4 w-4" />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      <form onSubmit={submit} className="mt-5 space-y-3">
+    <AuthLayout title="Create your account" subtitle="Buy meals or set up your kitchen with the same login.">
+      <form onSubmit={submit} className="space-y-3">
         {errors.form && <p className="text-xs text-destructive">{errors.form}</p>}
         <Field label="Full name" error={errors.name}>
           <input className={input} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ayesha Khan" />

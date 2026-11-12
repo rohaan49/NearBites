@@ -18,6 +18,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ChooseModeRouteImport } from './routes/choose-mode'
 import { Route as CartRouteImport } from './routes/cart'
 import { Route as AdminLoginRouteImport } from './routes/admin-login'
 import { Route as AdminInviteRouteImport } from './routes/admin-invite'
@@ -71,6 +72,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChooseModeRoute = ChooseModeRouteImport.update({
+  id: '/choose-mode',
+  path: '/choose-mode',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CartRoute = CartRouteImport.update({
   id: '/cart',
   path: '/cart',
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/admin-invite': typeof AdminInviteRoute
   '/admin-login': typeof AdminLoginRoute
   '/cart': typeof CartRoute
+  '/choose-mode': typeof ChooseModeRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/insights': typeof InsightsRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/admin-invite': typeof AdminInviteRoute
   '/admin-login': typeof AdminLoginRoute
   '/cart': typeof CartRoute
+  '/choose-mode': typeof ChooseModeRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/insights': typeof InsightsRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/admin-invite': typeof AdminInviteRoute
   '/admin-login': typeof AdminLoginRoute
   '/cart': typeof CartRoute
+  '/choose-mode': typeof ChooseModeRoute
   '/dashboard': typeof DashboardRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/insights': typeof InsightsRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/admin-invite'
     | '/admin-login'
     | '/cart'
+    | '/choose-mode'
     | '/dashboard'
     | '/forgot-password'
     | '/insights'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/admin-invite'
     | '/admin-login'
     | '/cart'
+    | '/choose-mode'
     | '/dashboard'
     | '/forgot-password'
     | '/insights'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/admin-invite'
     | '/admin-login'
     | '/cart'
+    | '/choose-mode'
     | '/dashboard'
     | '/forgot-password'
     | '/insights'
@@ -226,6 +238,7 @@ export interface RootRouteChildren {
   AdminInviteRoute: typeof AdminInviteRoute
   AdminLoginRoute: typeof AdminLoginRoute
   CartRoute: typeof CartRoute
+  ChooseModeRoute: typeof ChooseModeRoute
   DashboardRoute: typeof DashboardRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   InsightsRoute: typeof InsightsRoute
@@ -303,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/choose-mode': {
+      id: '/choose-mode'
+      path: '/choose-mode'
+      fullPath: '/choose-mode'
+      preLoaderRoute: typeof ChooseModeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cart': {
       id: '/cart'
       path: '/cart'
@@ -362,6 +382,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminInviteRoute: AdminInviteRoute,
   AdminLoginRoute: AdminLoginRoute,
   CartRoute: CartRoute,
+  ChooseModeRoute: ChooseModeRoute,
   DashboardRoute: DashboardRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   InsightsRoute: InsightsRoute,

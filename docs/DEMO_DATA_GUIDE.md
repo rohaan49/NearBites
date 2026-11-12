@@ -1,0 +1,19 @@
+# Fictional demo data walkthrough
+
+The local demo is already seeded on the presentation laptop. For a fresh local database, first apply migrations and run `app.bootstrap_content`, then run `app.seed_islamabad_samples` and `app.seed_demo_activity` from `backend` with `.env` loaded. The activity seeder also creates the separate local checkout-test kitchen. It is repeatable and requires a localhost `FRONTEND_ORIGIN`.
+
+Every account using `@demo.nearbites.invalid`, its orders, evidence, reviews, and analytics are fictional. The admin page starts in **Demo data** view. Switch to **Live data** for real accounts. Sample kitchens and their preview menus cannot take orders. The **Order Test Kitchen** has three explicitly marked dishes for local cart and cash-on-delivery flow practice; no food is actually prepared or delivered.
+
+| Screen | What the demo supplies | What to show |
+| --- | --- | --- |
+| Buyer home and vendor profiles | Ten original sample buyers, ten sample kitchens, 26 preview dishes, reviews, order history, and six dated sample verifications | Search kitchens, open a profile, read the fictional completion rate and verification date. Sign in as sample buyer 1 for three same-weekday reorder suggestions linked to the Order Test Kitchen. |
+| Cart and checkout | Three orderable, clearly marked local test dishes and a sample buyer address with coordinates | Add a test dish, choose the saved address, confirm a cash-on-delivery test order, and follow its status. |
+| Seller dashboard and insights | More than 1,000 historical orders overall. Sample seller 1 has eight dishes with costs, many dish pairs, review keywords, review-topic predictions from a synthetic-trained text model, a mixed buyer retention funnel, dormant regulars, and daily planning/forecast data. | Sign in as sample seller 1, open Dashboard and Insights, compare popular dishes with estimated gross margin, examine buyer retention and planning. Expand **How this model was trained and measured** under review themes to show the synthetic holdout scores. |
+| Seller training | Ten quiz attempts per module, allergen acknowledgements, and illustrated proofs for the four modules that require evidence. Six sample sellers have dated fictional verification; four show incomplete/rejected states. | Open training progress and the admin proof list. The illustrated proof images and detection scores are explicitly fictional. |
+| Admin review queue | Five new pending kitchen applications, multiple pending listings, pending proofs, open hygiene reports, priority reasons, wait times, and five example reviewer assignments. | Show why an urgent hygiene case is above a routine listing, and open the assignment selector. |
+| Admin analytics | Five signup-month cohorts, ten seller histories with growing/stable/declining trends, ten delivery areas, several verified preview areas, completed review decisions, report outcomes, and verification-age groups. | Switch through Marketplace, Training, Review Workload, and Verification charts in Demo data view. |
+| ChefCam shadow chart | Explicitly simulated hairnet/glove scores on illustrated proofs, including one fictional high-confidence/human-rejection disagreement. | Explain the proposed threshold and why real independently labeled camera photos are needed before any automatic approval. Use a real camera submission to demonstrate actual inference. |
+
+The example accounts are `sample-seller-1@demo.nearbites.invalid` and `sample-buyer-1@demo.nearbites.invalid`. Set their local passwords through `app.enable_demo_seller` and `app.enable_demo_buyer`; passwords are kept in the local database as hashes and are never stored in this repository. Use an existing admin account for the admin pages.
+
+The data illustrates how the screens behave. It is not evidence of genuine food orders, payment, hygiene, verification accuracy, forecast accuracy, or model quality.

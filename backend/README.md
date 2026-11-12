@@ -2,6 +2,8 @@
 
 The API serves accounts, kitchens, listings, training, orders, reviews, moderation, and analytics. The route reference is [BACKEND_API.md](../BACKEND_API.md). Demo data is opt-in through the seed commands below and remains clearly labeled.
 
+Buyer and seller workspaces use one account and one password. A buyer can create a kitchen; that account gains seller capability while keeping its buyer history and access. The selected workspace is stored in `view_preference`. An admin can sign in through the ordinary login but cannot choose a marketplace workspace or place orders.
+
 ## Local setup
 
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
@@ -71,7 +73,9 @@ For a fuller local presentation, run:
 uv run --env-file .env python -m app.seed_demo_activity
 ```
 
-This adds 50 quiz attempts, 50 visibly watermarked proof illustrations, five pending demo listings, 20 demo orders with several statuses, buyer reviews, and hygiene reports. The command is repeatable. The admin workspace starts in **Demo data** view and can switch to **Live data**; live overview and analytics exclude sample activity. Sample evidence is an illustration and never a genuine camera/model verification. Do not use demo records as proof of actual sales, payment, hygiene, or seller training. Remove the sample records before using a live marketplace with real customers.
+For a local seller analytics walkthrough, set a private `DEMO_SELLER_PASSWORD` of at least 10 characters and run `python -m app.enable_demo_seller` with the same `.env` loaded. The fictional account is `sample-seller-1@demo.nearbites.invalid`; its sample dishes remain non-orderable. The password is never stored in the repository.
+
+This adds five months of buyer cohorts, more than 1,000 fictional historical orders, an eight-dish featured seller menu, review keywords and dish pairs, multiple pending listings, five pending kitchen applications, varied training outcomes, hygiene reports, and fictional moderation decisions. It also creates the local order-test kitchen and repeat-order history for the first sample buyer. The command is repeatable and only runs with a localhost frontend origin. The admin workspace starts in **Demo data** view and can switch to **Live data**; live overview and analytics exclude sample activity. All sample evidence and detector scores are explicitly fictional, never a genuine camera/model verification. The sample kitchens and dishes remain non-orderable; only the separate local checkout-test kitchen can take test orders. See [Demo data guide](../docs/DEMO_DATA_GUIDE.md) for a screen-by-screen walkthrough.
 
 For local checkout testing, create the separate orderable kitchen and three approved dishes:
 

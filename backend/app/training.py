@@ -106,12 +106,15 @@ def update_eligibility(db: Session, kitchen: Kitchen) -> None:
     if local_order_test_kitchen(db, kitchen):
         kitchen.training_verified = True
         return
+    was_verified = kitchen.training_verified
     modules = db.scalars(select(TrainingModule).where(TrainingModule.active.is_(True))).all()
     owner = db.get(User, kitchen.owner_id)
     kitchen.training_verified = bool(
         modules and owner and owner.email_verified
         and all(module_progress(db, kitchen, module)["completed"] for module in modules)
     )
+    if kitchen.training_verified and not was_verified:
+        kitchen.verified_at = datetime.now(timezone.utc)
 
 
 @router.get("/training/modules")
@@ -386,12 +389,25 @@ def require_retraining(vendor_id: str, admin: Admin, db: Db) -> dict:
 def training_funnel(admin: Admin, db: Db, demo: bool = False) -> dict:
     sample_email = User.email.like("%@demo.nearbites.invalid")
     scope = sample_email if demo else ~sample_email
+    kitchens = db.scalars(select(Kitchen).join(User, User.id == Kitchen.owner_id).where(scope)).all()
+    modules = db.scalars(select(TrainingModule).where(TrainingModule.active.is_(True)).order_by(TrainingModule.id)).all()
+    module_funnel = []
+    for module in modules:
+        progress_rows = [module_progress(db, kitchen, module) for kitchen in kitchens]
+        module_funnel.append({
+            "module_id": module.id,
+            "title": module.title,
+            "started": sum(bool(row["quiz_attempted"]) for row in progress_rows),
+            "quiz_passed": sum(bool(row["quiz_passed"]) for row in progress_rows),
+            "completed": sum(bool(row["completed"]) for row in progress_rows),
+        })
     return {
-        "seller_count": db.scalar(select(func.count()).select_from(Kitchen).join(User, User.id == Kitchen.owner_id).where(scope)) or 0,
+        "seller_count": len(kitchens),
         "verified_count": db.scalar(
             select(func.count()).select_from(Kitchen).join(User, User.id == Kitchen.owner_id).where(Kitchen.training_verified.is_(True), scope)
         ) or 0,
         "pending_proofs": db.scalar(
             select(func.count()).select_from(ProofSubmission).join(Kitchen, Kitchen.owner_id == ProofSubmission.user_id).join(User, User.id == Kitchen.owner_id).where(ProofSubmission.status == "pending", ProofSubmission.module_id != "allergens", scope)
         ) or 0,
+        "modules": module_funnel,
     }

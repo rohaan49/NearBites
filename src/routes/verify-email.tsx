@@ -52,7 +52,7 @@ function VerifyEmailPage() {
     }
     try {
       await verifyEmail(digits.join(""));
-      navigate({ to: user?.role === "seller" ? "/seller-training" : "/" });
+      navigate({ to: "/choose-mode" });
     } catch (error) {
       setError(error instanceof Error ? error.message : "Verification failed");
     }

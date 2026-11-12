@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { useCart } from "@/lib/cart";
 import { AuthLayout, Field } from "./signup";
 
 export const Route = createFileRoute("/login")({
@@ -25,7 +24,6 @@ const input =
 
 function LoginPage() {
   const { login } = useAuth();
-  const { setRole } = useCart();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -41,9 +39,8 @@ function LoginPage() {
 
     try {
       const user = await login(form.email, form.password);
-      setRole(user.role === "seller" ? "vendor" : "student");
       if (!user.email_verified) return navigate({ to: "/verify-email" });
-      navigate({ to: user.role === "seller" ? "/dashboard" : user.role === "admin" ? "/admin" : "/" });
+      navigate({ to: user.role === "admin" ? "/admin" : "/choose-mode" });
     } catch (error) {
       setErrors({ form: error instanceof Error ? error.message : "Sign-in failed" });
     }

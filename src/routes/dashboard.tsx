@@ -17,6 +17,7 @@ type Summary = {
   rating: number | null;
   top_dishes: { dish_id: string; name: string; quantity: number }[];
 };
+type TrustRecord = { tier: string; window_days?: number; delivered_orders?: number; review_count?: number; cancellation_rate?: number | null; open_or_resolved_hygiene_reports?: number; effect?: string };
 
 function Dashboard() {
   const { user, refreshUser } = useAuth();
@@ -24,6 +25,7 @@ function Dashboard() {
   const [listings, setListings] = useState<Dish[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [trust, setTrust] = useState<TrustRecord | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [kitchenForm, setKitchenForm] = useState({ name: "", chef: "", area: "", bio: "", latitude: null as number | null, longitude: null as number | null });
@@ -33,19 +35,22 @@ function Dashboard() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [stockDraft, setStockDraft] = useState<Record<string, string>>({});
+  const [costDraft, setCostDraft] = useState<Record<string, string>>({});
 
   const load = async () => {
     try {
       const profile = await api.get<Vendor>("/seller/kitchen");
       setKitchen(profile);
-      const [menu, incoming, stats] = await Promise.all([
+      const [menu, incoming, stats, trackRecord] = await Promise.all([
         api.get<{ items: Dish[] }>("/seller/listings"),
         api.get<{ items: Order[] }>("/seller/orders"),
         api.get<Summary>("/seller/dashboard"),
+        api.get<TrustRecord>("/seller/trust"),
       ]);
       setListings(menu.items);
       setOrders(incoming.items);
       setSummary(stats);
+      setTrust(trackRecord);
       setError("");
     } catch (err) {
       if (!(err instanceof Error && "status" in err && err.status === 404)) {
@@ -123,15 +128,28 @@ function Dashboard() {
     }
   };
 
+  const saveCost = async (dish: Dish) => {
+    try {
+      const raw = costDraft[dish.id] ?? (dish.cost_per_portion_pkr == null ? "" : String(dish.cost_per_portion_pkr));
+      await api.patch(`/seller/listings/${dish.id}/cost`, { cost_per_portion_pkr: raw === "" ? null : Number(raw) });
+      await load();
+      setMessage("Estimated portion cost saved for your private analytics.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save portion cost");
+    }
+  };
+
   return (
     <AppShell>
       <div className="px-4 pt-5">
         <h1 className="font-display text-2xl font-bold">Kitchen dashboard</h1>
+        {user?.email.endsWith("@demo.nearbites.invalid") && <p className="mt-3 rounded-xl border border-spice/30 bg-spice/10 p-3 text-sm">Fictional demo kitchen and order history. Sample dishes cannot be purchased.</p>}
         {!user && <p className="mt-5 text-sm">Please <Link to="/login" className="text-primary underline">log in</Link> first.</p>}
+        {user?.role === "admin" && <p className="mt-5 text-sm">Open your <Link to="/admin" className="text-primary underline">admin workspace</Link>.</p>}
         {user && !user.email_verified && <p className="mt-4 text-sm">Please <Link to="/verify-email" className="text-primary underline">verify your email</Link> before selling.</p>}
         {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
         {message && <p className="mt-3 text-sm text-mehndi">{message}</p>}
-        {user && user.email_verified && !kitchen && (
+        {user && user.role !== "admin" && user.email_verified && !kitchen && (
           <form onSubmit={createKitchen} className="mt-5 space-y-3 rounded-2xl border border-border bg-card p-5">
             <h2 className="font-display font-bold">Create your kitchen</h2>
             {(["name", "chef", "area", "bio"] as const).map((key) => (
@@ -168,6 +186,7 @@ function Dashboard() {
                 )} className="mt-3 rounded-xl bg-white/20 px-3 py-2 text-xs font-semibold">Add map location for delivery</button>
               )}
             </div>
+            {trust && <div className="mt-4 rounded-2xl border border-border bg-card p-4"><p className="text-sm font-bold capitalize">Seller track record: {trust.tier}</p><p className="mt-1 text-xs text-muted-foreground">Last {trust.window_days ?? 90} days · {trust.delivered_orders ?? 0} delivered orders · {trust.review_count ?? 0} reviews · {trust.open_or_resolved_hygiene_reports ?? 0} open or resolved hygiene reports. {trust.effect}</p></div>}
             {!kitchen.training_verified && <Link to="/seller-training" className="mt-4 inline-block rounded-xl bg-secondary px-4 py-2 text-sm font-semibold">Open seller training →</Link>}
             <div className="mt-5 grid grid-cols-2 gap-3">
               {[
@@ -183,6 +202,7 @@ function Dashboard() {
               ))}
             </div>
             <Link to="/insights" className="mt-4 inline-block text-sm font-semibold text-primary">View real order insights →</Link>
+            {summary && summary.top_dishes.length > 0 && <section className="mt-5 rounded-2xl border border-border bg-card p-4"><h2 className="font-display font-bold">Best-selling dishes this week</h2><div className="mt-2 space-y-2">{summary.top_dishes.map((dish) => <div key={dish.dish_id} className="flex justify-between text-sm"><span>{dish.name}</span><strong>{dish.quantity} portions</strong></div>)}</div></section>}
             <section className="mt-6">
               <h2 className="font-display text-lg font-bold">Incoming orders</h2>
               {orders.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No orders yet.</p>}
@@ -229,6 +249,9 @@ function Dashboard() {
                         </button>
                       )}
                     </div>
+                    <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-xs">Your cost per portion (optional, private)
+                      <input type="number" min="0" value={costDraft[dish.id] ?? (dish.cost_per_portion_pkr == null ? "" : String(dish.cost_per_portion_pkr))} onChange={(event) => setCostDraft((current) => ({ ...current, [dish.id]: event.target.value }))} placeholder="Rs" className="ml-2 w-24 rounded-lg border border-border bg-background px-2 py-1" />
+                    </label><button type="button" onClick={() => void saveCost(dish)} className="rounded-lg bg-secondary px-2 py-1 text-xs">Save cost</button></div>
                   </div>
                 ))}
               </div>
@@ -243,7 +266,7 @@ function Dashboard() {
               <form onSubmit={createListing} className="mt-6 space-y-3 rounded-2xl border border-border bg-card p-5">
                 <h2 className="font-display font-bold">Add a dish</h2>
                 <input required placeholder="Dish name" value={listingForm.name} onChange={(event) => setListingForm((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
-                <textarea placeholder="Ingredients, allergens, and description" value={listingForm.description} onChange={(event) => setListingForm((current) => ({ ...current, description: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
+                <textarea required minLength={10} placeholder="Ingredients, allergens, and description" value={listingForm.description} onChange={(event) => setListingForm((current) => ({ ...current, description: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
                 <div className="grid grid-cols-2 gap-2">
                   <input required type="number" min="1" placeholder="Price in PKR" value={listingForm.price_pkr} onChange={(event) => setListingForm((current) => ({ ...current, price_pkr: event.target.value }))} className="rounded-xl border border-border bg-background p-3 text-sm" />
                   <input required type="number" min="0" placeholder="Portions" value={listingForm.portions_available} onChange={(event) => setListingForm((current) => ({ ...current, portions_available: event.target.value }))} className="rounded-xl border border-border bg-background p-3 text-sm" />

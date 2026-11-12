@@ -109,6 +109,7 @@ export type Vendor = {
   bio: string;
   status: string;
   training_verified: boolean;
+  verified_at?: string | null;
   location_set: boolean;
   distance_km?: number | null;
   rating?: number | null;
@@ -125,6 +126,7 @@ export type Dish = {
   name: string;
   description: string;
   price_pkr: number;
+  cost_per_portion_pkr?: number | null;
   portion_size: string;
   image_url: string | null;
   portions_available: number;

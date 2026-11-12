@@ -3,12 +3,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from .database import get_db
 from .email import consume_code, create_and_send_code
-from .models import Kitchen, ModerationEvent, User
+from .models import Kitchen, ModerationEvent, ReviewAssignment, User
 from .security import password_hash, require_admin
 
 
@@ -85,6 +85,7 @@ def revoke_admin(user_id: str, admin: Admin, db: Db) -> None:
     count = db.scalar(select(func.count()).select_from(User).where(User.role == "admin")) or 0
     if count <= 1:
         raise HTTPException(409, "Cannot remove the last admin")
+    db.execute(update(ReviewAssignment).where(ReviewAssignment.reviewer_id == user.id).values(reviewer_id=None, assigned_at=None))
     user.role = "buyer"
     db.add(
         ModerationEvent(

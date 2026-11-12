@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { API_BASE, api, readSession } from "@/lib/api";
 import { BarChart3, BookOpenCheck, ChevronRight, ClipboardList, LayoutDashboard, Settings2, ShieldAlert, ShoppingBag, Store, Users, UtensilsCrossed } from "lucide-react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Admin — NearBites" }, { name: "robots", content: "noindex,nofollow" }] }),
@@ -15,9 +16,15 @@ type Proof = { id: string; user_id: string; seller_name?: string; kitchen_name?:
 type KitchenReview = { kitchen: Kitchen; seller: { name: string; email: string; email_verified: boolean } | null; modules: { id: string; title: string; proof_instruction: string; question_count: number; questions: { question: string; correct_answer: string }[]; progress: { quiz_passed: boolean; proof_status: string; acknowledged: boolean; completed: boolean }; quiz_attempts: { id: string; score: number; passed: boolean; submitted_at: string }[]; proofs: Proof[] }[] };
 type Flag = { id: string; vendor_id: string; order_id: string; description: string; created_at: string; is_demo: boolean };
 type AdminOrder = { id: string; vendor_id: string; vendor_name: string; buyer_id: string; buyer_name: string; status: string; payment_status: string; total_pkr: number; placed_at: string; is_demo: boolean };
-type Overview = { delivered_orders: number; revenue_pkr: number; active_vendors: number; pending_listings: number; pending_proofs: number; open_hygiene_reports: number; overdue_reviews: number; daily: { day: string; orders: number; revenue_pkr: number }[] };
-type Analytics = { leaderboard: { vendors: { vendor_id: string; name: string; revenue_pkr: number; orders: number }[]; dishes: { dish_id: string; name: string; portions_sold: number }[] }; demand: { areas: { area: string; orders: number }[] }; revenue: { total_pkr: number; areas: { area: string; revenue_pkr: number }[] }; training: { seller_count: number; verified_count: number; pending_proofs: number } };
+type Overview = { delivered_orders: number; orders_placed: number; buyers_ordering: number; average_paid_order_pkr: number; revenue_pkr: number; active_vendors: number; pending_listings: number; pending_proofs: number; open_hygiene_reports: number; overdue_reviews: number; daily: { day: string; orders: number; revenue_pkr: number }[] };
+type Activity = { items: { at: string; kind: string; title: string; detail: string }[]; definition: string };
+type Analytics = { leaderboard: { vendors: { vendor_id: string; name: string; revenue_pkr: number; orders: number }[]; dishes: { dish_id: string; name: string; portions_sold: number }[] }; demand: { areas: { area: string; orders: number }[]; heatmap: { weekday: number; hour: number; orders: number }[]; daily: { day: string; orders: number; revenue_pkr: number }[] }; revenue: { total_pkr: number; daily: { day: string; orders: number; revenue_pkr: number }[]; areas: { area: string; revenue_pkr: number }[] }; training: { seller_count: number; verified_count: number; pending_proofs: number; modules: { module_id: string; title: string; started: number; quiz_passed: number; completed: number }[] }; health: { areas: { area: string; delivered_orders_to_area: number; available_verified_kitchens_in_area: number; orders_per_available_kitchen: number | null }[]; seller_trajectories: { kitchen_id: string; name: string; previous_30_days: number; recent_30_days: number; trajectory: string }[]; notes: string }; chefcam: { mode: string; rule: string; proofs_with_model_evidence: number; would_approve: number; would_approve_reviewed: number; human_rejections_among_would_approve: number; note: string } };
+type Cohorts = { cohorts: { signup_month: string; buyers: number; weeks: { week: number; eligible_buyers: number; buyers_with_delivered_order: number; rate: number | null }[] }[]; definition: string };
+type ReviewOperations = { by_type: { type: string; completed_reviews: number; average_wait_hours: number | null }[] };
+type VerificationOutcomes = { groups: { group: string; kitchens: number; delivered_orders: number; buyer_reports: number; reports_per_100_delivered_orders: number | null }[]; note: string };
 type Settings = { hygiene_flag_threshold: number; review_sla_hours: number; notifications_enabled: boolean };
+type ReviewQueueItem = { type: "kitchen" | "listing" | "proof" | "hygiene"; id: string; title: string; kitchen_id: string; kitchen_name: string; seller_tier: string; created_at: string; waiting_hours: number; overdue: boolean; priority: "urgent" | "high" | "routine"; reasons: string[]; reviewer_id: string | null; reviewer_name: string | null };
+type ReviewQueue = { items: ReviewQueueItem[]; summary: { open: number; overdue: number; unassigned: number; urgent: number } };
 
 const panel = "rounded-xl border border-[#dfe6de] bg-white shadow-sm";
 const primaryButton = "rounded-lg bg-[#315e42] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#254d35] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#315e42] disabled:opacity-50";
@@ -31,6 +38,23 @@ function SectionHeading({ title, description, count }: { title: string; descript
 
 function EmptyPanel({ title, detail }: { title: string; detail: string }) {
   return <div className={`${panel} px-6 py-14 text-center`}><h3 className="font-semibold">{title}</h3><p className="mx-auto mt-1 max-w-md text-sm text-[#66716a]">{detail}</p></div>;
+}
+
+function AdminAnalyticsCharts({ analytics }: { analytics: Analytics }) {
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const periods = [{ label: "6–9am", start: 6 }, { label: "9am–12pm", start: 9 }, { label: "12–3pm", start: 12 }, { label: "3–6pm", start: 15 }, { label: "6–9pm", start: 18 }, { label: "9pm–12am", start: 21 }];
+  const valueAt = (day: number, hour: number) => analytics.demand.heatmap.filter((row) => row.weekday === day && row.hour >= hour && row.hour < hour + 3).reduce((sum, row) => sum + row.orders, 0);
+  const maxDemand = Math.max(1, ...analytics.demand.heatmap.map((row) => row.orders));
+  const topDishes = analytics.leaderboard.dishes.slice(0, 8);
+  const trainingRows = analytics.training.modules;
+  const areaRows = analytics.demand.areas.slice(0, 8).map((area) => ({ area: area.area, orders: area.orders, revenue: analytics.revenue.areas.find((row) => row.area === area.area)?.revenue_pkr ?? 0 }));
+  return <div className="mt-5 grid gap-5 lg:grid-cols-2">
+    <section className={`${panel} p-5`}><h3 className="font-display text-lg font-bold">Top dishes this period</h3><p className="mt-1 text-sm text-[#66716a]">Delivered portions across the selected marketplace data.</p>{topDishes.length ? <div className="mt-4 h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={topDishes} layout="vertical" margin={{ left: 8, right: 16 }}><CartesianGrid stroke="#eadfd3" strokeDasharray="4 4" horizontal={false} /><XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} /><YAxis type="category" dataKey="name" width={118} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="portions_sold" name="Portions sold" fill="#c8471c" radius={[0, 7, 7, 0]} /></BarChart></ResponsiveContainer></div> : <p className="mt-5 text-sm text-[#66716a]">No delivered dish orders in this period.</p>}</section>
+    <section className={`${panel} p-5`}><h3 className="font-display text-lg font-bold">Orders are growing</h3><p className="mt-1 text-sm text-[#66716a]">Delivered orders per day.</p>{analytics.demand.daily.length ? <div className="mt-4 h-72"><ResponsiveContainer width="100%" height="100%"><AreaChart data={analytics.demand.daily}><defs><linearGradient id="demandOrderFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c8471c" stopOpacity={0.32} /><stop offset="95%" stopColor="#c8471c" stopOpacity={0.02} /></linearGradient></defs><CartesianGrid stroke="#eadfd3" strokeDasharray="4 4" vertical={false} /><XAxis dataKey="day" tickFormatter={(day) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })} tick={{ fontSize: 11 }} minTickGap={25} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={32} /><Tooltip labelFormatter={(day) => new Date(`${day}T12:00:00`).toLocaleDateString()} /><Area type="monotone" dataKey="orders" stroke="#b83d17" strokeWidth={3} fill="url(#demandOrderFill)" /></AreaChart></ResponsiveContainer></div> : <p className="mt-5 text-sm text-[#66716a]">No daily orders in this period.</p>}</section>
+    <section className={`${panel} p-5`}><h3 className="font-display text-lg font-bold">When the city orders</h3><p className="mt-1 text-sm text-[#66716a]">Delivered orders by weekday and three-hour period.</p><div className="mt-4 overflow-x-auto"><div className="min-w-[640px]"><div className="grid grid-cols-[44px_repeat(6,minmax(0,1fr))] gap-1.5 text-center text-[11px] text-[#66716a]"><span />{periods.map((period) => <span key={period.label}>{period.label}</span>)}</div>{weekdays.map((day, index) => <div key={day} className="mt-1.5 grid grid-cols-[44px_repeat(6,minmax(0,1fr))] items-center gap-1.5"><span className="text-xs font-semibold text-[#526056]">{day}</span>{periods.map((period) => { const count = valueAt(index, period.start); return <div key={period.label} title={`${day} ${period.label}: ${count} orders`} className="rounded-lg py-3 text-xs font-semibold" style={{ backgroundColor: `rgba(190, 65, 25, ${0.08 + 0.82 * count / maxDemand})`, color: count / maxDemand > 0.52 ? "#fff" : "#58392e" }}>{count}</div>; })}</div>)}</div></div></section>
+    <section className={`${panel} p-5`}><h3 className="font-display text-lg font-bold">Neighbourhood demand</h3><p className="mt-1 text-sm text-[#66716a]">Orders and paid order value by kitchen area. Commission is not recorded in this app.</p>{areaRows.length ? <div className="mt-4 h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={areaRows} margin={{ left: 4, right: 16 }}><CartesianGrid stroke="#eadfd3" strokeDasharray="4 4" vertical={false} /><XAxis dataKey="area" tick={{ fontSize: 11 }} /><YAxis yAxisId="orders" allowDecimals={false} tick={{ fontSize: 11 }} width={34} /><YAxis yAxisId="value" orientation="right" hide /><Tooltip formatter={(value, name) => name === "Paid order value" ? [`Rs ${Number(value).toLocaleString()}`, name] : [value, name]} /><Bar yAxisId="orders" dataKey="orders" name="Orders" fill="#c8471c" radius={[6, 6, 0, 0]} /><Bar yAxisId="value" dataKey="revenue" name="Paid order value" fill="#d98754" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div> : <p className="mt-5 text-sm text-[#66716a]">No area data for this period.</p>}</section>
+    <section className={`${panel} p-5 lg:col-span-2`}><h3 className="font-display text-lg font-bold">Seller training funnel</h3><p className="mt-1 text-sm text-[#66716a]">Kitchens that attempted the quiz, passed it, and completed the lesson. Demo view is fictional.</p>{trainingRows.length ? <div className="mt-4 h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={trainingRows} margin={{ left: 4, right: 12, bottom: 8 }}><CartesianGrid stroke="#eadfd3" strokeDasharray="4 4" vertical={false} /><XAxis dataKey="title" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={34} /><Tooltip /><Bar dataKey="started" name="Started" fill="#e9b598" radius={[5, 5, 0, 0]} /><Bar dataKey="quiz_passed" name="Quiz passed" fill="#d8794e" radius={[5, 5, 0, 0]} /><Bar dataKey="completed" name="Completed" fill="#a93618" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer></div> : <p className="mt-5 text-sm text-[#66716a]">No training module activity in this view.</p>}</section>
+  </div>;
 }
 
 function StatusPill({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "success" | "warning" | "danger" }) {
@@ -75,10 +99,11 @@ function ProofPreview({ proof }: { proof: Proof }) {
   </div>;
 }
 
-const tabs = ["overview", "kitchens", "buyers", "listings", "proofs", "hygiene", "orders", "analytics", "settings", "team"] as const;
+const tabs = ["overview", "review-queue", "kitchens", "buyers", "listings", "proofs", "hygiene", "orders", "analytics", "settings", "team"] as const;
 type Tab = typeof tabs[number];
 const tabMeta = {
   overview: { label: "Overview", icon: LayoutDashboard, description: "Platform activity and priorities" },
+  "review-queue": { label: "Review queue", icon: ClipboardList, description: "Priority, ownership, and waiting time" },
   kitchens: { label: "Kitchens", icon: Store, description: "Review sellers, training, and evidence" },
   buyers: { label: "Users", icon: Users, description: "Registered accounts" },
   listings: { label: "Listings", icon: UtensilsCrossed, description: "Dishes awaiting a decision" },
@@ -93,9 +118,12 @@ const tabMeta = {
 function AdminPage() {
   const { user, hydrated, logout } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("kitchens");
+  const [tab, setTab] = useState<Tab>("review-queue");
   const [demoScope, setDemoScope] = useState(true);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [activity, setActivity] = useState<Activity | null>(null);
+  const [overviewRange, setOverviewRange] = useState<"today" | "week" | "month">("month");
+  const [analyticsRange, setAnalyticsRange] = useState<"today" | "week" | "month">("month");
   const [kitchens, setKitchens] = useState<Kitchen[]>([]);
   const [selectedKitchen, setSelectedKitchen] = useState<string | null>(null);
   const [review, setReview] = useState<KitchenReview | null>(null);
@@ -109,8 +137,12 @@ function AdminPage() {
   const [watchlist, setWatchlist] = useState<{ vendor_id: string; name: string; open_flags: number }[]>([]);
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [cohorts, setCohorts] = useState<Cohorts | null>(null);
+  const [reviewOperations, setReviewOperations] = useState<ReviewOperations | null>(null);
+  const [verificationOutcomes, setVerificationOutcomes] = useState<VerificationOutcomes | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [admins, setAdmins] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [reviewQueue, setReviewQueue] = useState<ReviewQueue | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -123,9 +155,18 @@ function AdminPage() {
     if (user?.role !== "admin") return;
     try {
       if (tab === "overview") {
-        const [summary, kitchenRows] = await Promise.all([api.get<Overview>(`/admin/overview?demo=${demoScope}`), api.get<{ items: Kitchen[] }>("/admin/kitchens")]);
+        const [summary, kitchenRows, recent] = await Promise.all([api.get<Overview>(`/admin/overview?demo=${demoScope}&range=${overviewRange}`), api.get<{ items: Kitchen[] }>("/admin/kitchens"), api.get<Activity>(`/admin/analytics/activity?demo=${demoScope}`)]);
         setOverview(summary);
         setKitchens(kitchenRows.items);
+        setActivity(recent);
+      }
+      if (tab === "review-queue") {
+        const [queue, reviewers] = await Promise.all([
+          api.get<ReviewQueue>(`/admin/review-queue?demo=${demoScope}`),
+          api.get<{ items: typeof admins }>("/admin/users"),
+        ]);
+        setReviewQueue(queue);
+        setAdmins(reviewers.items);
       }
       if (tab === "kitchens") setKitchens((await api.get<{ items: Kitchen[] }>("/admin/kitchens")).items.sort((a, b) => Number(a.status === "sample") - Number(b.status === "sample")));
       if (tab === "buyers") setBuyers((await api.get<{ items: typeof buyers }>("/admin/buyers")).items);
@@ -143,20 +184,28 @@ function AdminPage() {
       if (tab === "settings") setSettings(await api.get<Settings>("/admin/settings"));
       if (tab === "team") setAdmins((await api.get<{ items: { id: string; name: string; email: string }[] }>("/admin/users")).items);
       if (tab === "analytics") {
-        const [leaderboard, demand, revenue, training] = await Promise.all([
-          api.get(`/admin/analytics/leaderboard?demo=${demoScope}`),
-          api.get(`/admin/analytics/demand?demo=${demoScope}`),
-          api.get(`/admin/analytics/revenue?demo=${demoScope}`),
+        const [leaderboard, demand, revenue, training, health, chefcam, buyerCohorts, reviewStats, verificationStats] = await Promise.all([
+          api.get(`/admin/analytics/leaderboard?demo=${demoScope}&range=${analyticsRange}`),
+          api.get(`/admin/analytics/demand?demo=${demoScope}&range=${analyticsRange}`),
+          api.get(`/admin/analytics/revenue?demo=${demoScope}&range=${analyticsRange}`),
           api.get(`/admin/analytics/training?demo=${demoScope}`),
+          api.get(`/admin/analytics/marketplace-health?demo=${demoScope}`),
+          api.get(`/admin/analytics/chefcam-shadow?demo=${demoScope}`),
+          api.get<Cohorts>(`/admin/analytics/buyer-cohorts?demo=${demoScope}`),
+          api.get<ReviewOperations>(`/admin/analytics/review-operations?demo=${demoScope}`),
+          api.get<VerificationOutcomes>(`/admin/analytics/verification-outcomes?demo=${demoScope}`),
         ]);
-        setAnalytics({ leaderboard, demand, revenue, training } as Analytics);
+        setAnalytics({ leaderboard, demand, revenue, training, health, chefcam } as Analytics);
+        setCohorts(buyerCohorts);
+        setReviewOperations(reviewStats);
+        setVerificationOutcomes(verificationStats);
       }
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load admin data");
     }
   };
-  useEffect(() => { void load(); }, [tab, user, demoScope]);
+  useEffect(() => { void load(); }, [tab, user, demoScope, overviewRange, analyticsRange]);
   const visibleKitchens = kitchens.filter((kitchen) => {
     if (kitchen.is_demo !== demoScope) return false;
     if (!demoScope && kitchenFilter === "pending" && kitchen.status !== "pending") return false;
@@ -229,6 +278,8 @@ function AdminPage() {
         {tab === "overview" && overview && (
           <section>
             <SectionHeading title="Today at a glance" description={demoScope ? "Fictional activity for a complete presentation." : "Live operations, with the items that need an admin decision first."} />
+            <div className="mb-5 inline-flex rounded-full border border-[#dfe6de] bg-white p-1" aria-label="Overview date range">{([ ["today", "Today"], ["week", "This week"], ["month", "This month"] ] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={overviewRange === value} onClick={() => setOverviewRange(value)} className={`rounded-full px-4 py-2 text-sm font-semibold ${overviewRange === value ? "bg-[#a82d13] text-white" : "text-[#59655c] hover:bg-[#f2f5f0]"}`}>{label}</button>)}</div>
+            <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[["Orders placed", overview.orders_placed], ["Buyers ordering", overview.buyers_ordering], ["Active kitchens", overview.active_vendors], ["Average paid order", `Rs ${overview.average_paid_order_pkr.toLocaleString()}`]].map(([label, value]) => <div key={label} className={`${panel} rounded-2xl p-5`}><p className="text-sm text-[#66716a]">{label}</p><p className="mt-2 font-display text-3xl font-bold tabular-nums text-[#38261f]">{value}</p></div>)}</div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 { label: demoScope ? "Demo kitchens" : "Pending kitchen decisions", value: demoScope ? kitchens.filter((k) => k.is_demo).length : kitchens.filter((k) => k.status === "pending").length, target: "kitchens" as Tab, note: "Review sellers" },
@@ -239,9 +290,24 @@ function AdminPage() {
             </div>
             {overview.overdue_reviews > 0 && <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#e9d8b9] bg-[#fff7e9] px-5 py-4"><div><p className="font-semibold text-[#765821]">{overview.overdue_reviews} reviews past the target time</p><p className="mt-0.5 text-sm text-[#816d4b]">Open proof and listing queues to clear them.</p></div><button onClick={() => setTab("proofs")} className={quietButton}>Open proof queue</button></div>}
             <div className="mt-7 grid gap-5 lg:grid-cols-[1.3fr_1fr]">
-              <div className={`${panel} p-5 sm:p-6`}><h3 className="font-semibold">Orders and revenue</h3><p className="mt-1 text-sm text-[#66716a]">Last seven days · paid, delivered orders</p><div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3"><div><p className="text-xs text-[#66716a]">Revenue received</p><p className="mt-1 text-2xl font-semibold tabular-nums">Rs {overview.revenue_pkr.toLocaleString()}</p></div><div><p className="text-xs text-[#66716a]">Delivered orders</p><p className="mt-1 text-2xl font-semibold tabular-nums">{overview.delivered_orders}</p></div><div><p className="text-xs text-[#66716a]">{demoScope ? "Demo kitchens" : "Selling kitchens"}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{overview.active_vendors}</p></div></div>{overview.daily.length > 0 ? <div className="mt-6 space-y-2 border-t border-[#e8ece7] pt-4">{overview.daily.slice(-7).map((day) => <div key={day.day} className="flex items-center justify-between text-sm"><span className="text-[#66716a]">{new Date(`${day.day}T12:00:00`).toLocaleDateString(undefined,{month:"short",day:"numeric"})}</span><span className="tabular-nums">{day.orders} orders · Rs {day.revenue_pkr.toLocaleString()}</span></div>)}</div> : <p className="mt-6 border-t border-[#e8ece7] pt-4 text-sm text-[#66716a]">No delivered orders in this period.</p>}</div>
+              <div className={`${panel} p-5 sm:p-6`}><h3 className="font-display text-lg font-bold">How orders are moving</h3><p className="mt-1 text-sm text-[#66716a]">Daily delivered orders and paid order value · {overviewRange === "today" ? "today" : overviewRange === "week" ? "last 7 days" : "last 30 days"}</p><p className="mt-4 text-2xl font-semibold tabular-nums">Rs {overview.revenue_pkr.toLocaleString()} <span className="text-sm font-normal text-[#66716a]">paid order value</span></p>{overview.daily.length > 0 ? <div className="mt-3 h-64 w-full"><ResponsiveContainer width="100%" height="100%"><AreaChart data={overview.daily}><defs><linearGradient id="adminOrdersFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#c9471a" stopOpacity={0.35} /><stop offset="95%" stopColor="#c9471a" stopOpacity={0.02} /></linearGradient></defs><CartesianGrid stroke="#eadfd3" strokeDasharray="4 4" vertical={false} /><XAxis dataKey="day" tickFormatter={(day) => new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })} tick={{ fontSize: 11 }} minTickGap={24} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={34} /><Tooltip labelFormatter={(day) => new Date(`${day}T12:00:00`).toLocaleDateString()} /><Area type="monotone" dataKey="orders" stroke="#b93b15" strokeWidth={3} fill="url(#adminOrdersFill)" /></AreaChart></ResponsiveContainer></div> : <p className="mt-6 text-sm text-[#66716a]">No delivered orders in this period.</p>}</div>
               <div className={`${panel} p-5 sm:p-6`}><h3 className="font-semibold">Review sequence</h3><p className="mt-1 text-sm text-[#66716a]">A clear path for each new seller.</p><ol className="mt-5 space-y-4">{[["1", "Review the kitchen", "Check seller identity and kitchen details."], ["2", "Inspect training proof", "Read quiz scores and open each submitted image."], ["3", "Decide on listings", "Publish dishes only when the kitchen and training are approved."]].map(([number,title,detail]) => <li key={number} className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e4eee3] text-xs font-bold text-[#315e42]">{number}</span><span><strong className="text-sm">{title}</strong><span className="mt-0.5 block text-xs text-[#66716a]">{detail}</span></span></li>)}</ol></div>
             </div>
+            <section className={`${panel} mt-5 p-5 sm:p-6`}><h3 className="font-display text-lg font-bold">Latest activity</h3><p className="mt-1 text-sm text-[#66716a]">Recent order, hygiene, kitchen, and training events. Buyer identities are omitted.</p>{activity?.items.length ? <div className="mt-4 divide-y divide-[#e9ede7]">{activity.items.map((item, index) => <div key={`${item.at}-${index}`} className="flex gap-3 py-3"><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${item.kind === "hygiene" ? "bg-red-500" : item.kind === "kitchen" ? "bg-amber-500" : "bg-emerald-600"}`} /><div className="min-w-0 flex-1"><p className="text-sm font-medium">{item.title}</p><p className="mt-0.5 text-sm text-[#66716a]">{item.detail}</p></div><time className="shrink-0 text-xs text-[#7a857c]">{new Date(item.at).toLocaleString()}</time></div>)}</div> : <p className="mt-4 text-sm text-[#66716a]">No recent activity in this data view.</p>}</section>
+          </section>
+        )}
+        {tab === "review-queue" && (
+          <section>
+            <SectionHeading title="Review queue" description="Safety cases first, then overdue and routine reviews. Every priority shows its reason." count={reviewQueue?.summary.open} />
+            {reviewQueue && <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{([
+              ["Open", reviewQueue.summary.open], ["Urgent", reviewQueue.summary.urgent],
+              ["Overdue", reviewQueue.summary.overdue], ["Unassigned", reviewQueue.summary.unassigned],
+            ] as const).map(([label, value]) => <div key={label} className={`${panel} p-4`}><p className="text-sm text-[#66716a]">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p></div>)}</div>}
+            {!reviewQueue ? <div className={`${panel} p-5 text-sm text-[#66716a]`}>Loading reviews…</div> : reviewQueue.items.length === 0 ? <EmptyPanel title="Queue is clear" detail="New proofs, listings, kitchens, and hygiene reports will appear here." /> : <div className="space-y-3">{reviewQueue.items.map((item) => <article key={`${item.type}-${item.id}`} className={`${panel} p-5`}>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><StatusPill label={item.priority} tone={item.priority === "urgent" ? "danger" : item.priority === "high" ? "warning" : "neutral"} /><span className="text-xs font-semibold uppercase tracking-wide text-[#66716a]">{item.type}</span><span className="text-xs text-[#66716a]">{item.seller_tier} seller</span></div><h3 className="mt-2 font-semibold">{item.title}</h3><p className="mt-1 text-sm text-[#66716a]">{item.kitchen_name} · waiting {item.waiting_hours.toFixed(1)} hours{item.overdue ? " · overdue" : ""}</p></div><button type="button" onClick={() => { if (item.type === "kitchen") { setTab("kitchens"); void showKitchen(item.id); } else setTab(item.type === "listing" ? "listings" : item.type === "proof" ? "proofs" : "hygiene"); }} className={quietButton}>Open review</button></div>
+              <p className="mt-3 text-sm text-[#536158]">{item.reasons.join(" · ")}</p>
+              <label className="mt-4 block max-w-xs text-xs font-semibold text-[#536158]">Assigned reviewer<select value={item.reviewer_id ?? ""} onChange={async (event) => { try { await api.patch(`/admin/review-queue/${item.type}/${item.id}/assignment`, { reviewer_id: event.target.value || null }); await load(); } catch (err) { setError(err instanceof Error ? err.message : "Could not assign review"); } }} className={inputClass}><option value="">Unassigned</option>{admins.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
+            </article>)}</div>}
           </section>
         )}
         {tab === "kitchens" && (
@@ -325,9 +391,21 @@ function AdminPage() {
         )}
         {tab === "analytics" && (
           <section><SectionHeading title="Platform analytics" description="Paid revenue, demand, and training in the selected data view." />
+            <div className="mb-5 inline-flex rounded-full border border-[#dfe6de] bg-white p-1" aria-label="Analytics date range">{([ ["today", "Today"], ["week", "This week"], ["month", "This month"] ] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={analyticsRange === value} onClick={() => setAnalyticsRange(value)} className={`rounded-full px-4 py-2 text-sm font-semibold ${analyticsRange === value ? "bg-[#a82d13] text-white" : "text-[#59655c] hover:bg-[#f2f5f0]"}`}>{label}</button>)}</div>
             {!analytics ? <div className={`${panel} animate-pulse p-6`}><div className="h-7 w-1/3 rounded bg-[#e8eee6]" /><div className="mt-5 h-48 rounded bg-[#f1f4ef]" /></div> : <><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[["Paid revenue", `Rs ${analytics.revenue.total_pkr.toLocaleString()}`], ["Seller kitchens", analytics.training.seller_count], ["Training verified", analytics.training.verified_count], ["Pending proofs", analytics.training.pending_proofs]].map(([label,value]) => <div key={label} className={`${panel} p-5`}><p className="text-sm text-[#66716a]">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p></div>)}</div><div className="mt-5 grid gap-5 lg:grid-cols-2">{[["Top kitchens", analytics.leaderboard.vendors.map((item) => ({name:item.name, detail:`Rs ${item.revenue_pkr.toLocaleString()} · ${item.orders} ${item.orders === 1 ? "order" : "orders"}`}))], ["Most ordered dishes", analytics.leaderboard.dishes.map((item) => ({name:item.name, detail:`${item.portions_sold} ${item.portions_sold === 1 ? "portion" : "portions"}`}))], ["Demand by area", analytics.demand.areas.map((item) => ({name:item.area, detail:`${item.orders} ${item.orders === 1 ? "order" : "orders"}`}))], ["Revenue by area", analytics.revenue.areas.map((item) => ({name:item.area, detail:`Rs ${item.revenue_pkr.toLocaleString()}`}))]].map(([title,rows]) => <div key={title as string} className={`${panel} p-5`}><h3 className="font-semibold">{title as string}</h3>{(rows as {name:string;detail:string}[]).length === 0 ? <p className="mt-4 text-sm text-[#66716a]">No completed activity in this period.</p> : <div className="mt-4 divide-y divide-[#e9ede7]">{(rows as {name:string;detail:string}[]).map((row) => <div key={row.name} className="flex justify-between gap-3 py-3 text-sm"><span className="font-medium">{row.name}</span><span className="text-right tabular-nums text-[#66716a]">{row.detail}</span></div>)}</div>}</div>)}</div></>}
+            {analytics && <AdminAnalyticsCharts analytics={analytics} />}
           </section>
         )}
+        {tab === "analytics" && analytics && <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <section className={`${panel} p-5`}><h3 className="font-semibold">Demand versus available kitchens</h3><p className="mt-1 text-xs text-[#66716a]">{demoScope ? "Fictional demand and verified preview kitchens by area. Preview menus cannot be ordered." : "Last 30 days. Demand uses buyer delivery area; supply uses active verified kitchens with an available approved dish."}</p>{analytics.health.areas.length === 0 ? <p className="mt-4 text-sm text-[#66716a]">No matching activity yet.</p> : <div className="mt-4 divide-y divide-[#e9ede7]">{analytics.health.areas.slice(0, 12).map((area) => <div key={area.area} className="flex justify-between gap-3 py-2 text-sm"><span className="capitalize">{area.area}</span><span className="text-right tabular-nums">{area.delivered_orders_to_area} orders · {area.available_verified_kitchens_in_area} kitchens{area.orders_per_available_kitchen !== null ? ` · ${area.orders_per_available_kitchen}/kitchen` : ""}</span></div>)}</div>}</section>
+          <section className={`${panel} p-5`}><h3 className="font-semibold">Seller order trends</h3><p className="mt-1 text-xs text-[#66716a]">Delivered orders in the latest 30 days versus the prior 30 days. Classification needs at least ten orders.</p>{analytics.health.seller_trajectories.length === 0 ? <p className="mt-4 text-sm text-[#66716a]">No sellers in this view.</p> : <div className="mt-4 divide-y divide-[#e9ede7]">{analytics.health.seller_trajectories.slice(0, 12).map((seller) => <div key={seller.kitchen_id} className="flex justify-between gap-3 py-2 text-sm"><span>{seller.name}</span><span className="text-right">{seller.previous_30_days} → {seller.recent_30_days} · {seller.trajectory}</span></div>)}</div>}</section>
+          <section className={`${panel} p-5 lg:col-span-2`}><h3 className="font-semibold">ChefCam proposed rule audit</h3><p className="mt-1 text-xs text-[#66716a]">Shadow mode: {analytics.chefcam.rule}. The model does not approve proofs.</p><div className="mt-4 grid gap-3 sm:grid-cols-4">{[["Proofs with model results", analytics.chefcam.proofs_with_model_evidence], ["Would approve", analytics.chefcam.would_approve], ["Reviewed suggestions", analytics.chefcam.would_approve_reviewed], ["Human rejections", analytics.chefcam.human_rejections_among_would_approve]].map(([label, value]) => <div key={label} className="rounded-lg bg-[#f4f7f2] p-3"><p className="text-xl font-semibold">{value}</p><p className="text-xs text-[#66716a]">{label}</p></div>)}</div><p className="mt-3 text-xs text-[#66716a]">{analytics.chefcam.note}</p></section>
+        </div>}
+        {tab === "analytics" && <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          {reviewOperations && <section className={`${panel} p-5`}><h3 className="font-semibold">Review workload</h3><p className="mt-1 text-xs text-[#66716a]">Completed decisions and average wait in the last 30 days.</p><div className="mt-4 divide-y divide-[#e9ede7]">{reviewOperations.by_type.map((row) => <div key={row.type} className="flex justify-between gap-3 py-2 text-sm"><span className="capitalize">{row.type.replaceAll("_", " ")}</span><span>{row.completed_reviews} decisions · {row.average_wait_hours === null ? "No wait data" : `${row.average_wait_hours}h average`}</span></div>)}</div></section>}
+          {cohorts && <section className={`${panel} p-5`}><h3 className="font-semibold">Buyer cohort activity</h3><p className="mt-1 text-xs text-[#66716a]">{cohorts.definition}</p>{cohorts.cohorts.length === 0 ? <p className="mt-4 text-sm text-[#66716a]">No recent signup cohorts.</p> : <div className="mt-4 space-y-3">{cohorts.cohorts.map((cohort) => <div key={cohort.signup_month} className="border-b border-[#e9ede7] pb-2 text-sm"><strong>{cohort.signup_month} · {cohort.buyers} accounts</strong><p className="mt-1 text-xs text-[#66716a]">{cohort.weeks.map((week) => `W${week.week}: ${week.rate === null ? "—" : `${Math.round(week.rate * 100)}%`} (${week.eligible_buyers} eligible)`).join(" · ")}</p></div>)}</div>}</section>}
+          {verificationOutcomes && <section className={`${panel} p-5 lg:col-span-2`}><h3 className="font-semibold">Verification outcome monitor</h3><p className="mt-1 text-xs text-[#66716a]">{verificationOutcomes.note}</p><div className="mt-4 grid gap-3 sm:grid-cols-2">{verificationOutcomes.groups.map((group) => <div key={group.group} className="rounded-lg bg-[#f4f7f2] p-4"><p className="font-semibold capitalize">{group.group.replaceAll("_", " ")}</p><p className="mt-1 text-sm">{group.kitchens} kitchens · {group.delivered_orders} delivered orders · {group.buyer_reports} reports</p><p className="mt-1 text-sm font-semibold">{group.reports_per_100_delivered_orders === null ? "No report rate yet" : `${group.reports_per_100_delivered_orders} reports per 100 delivered orders`}</p></div>)}</div></section>}
+        </div>}
         {tab === "settings" && settings && (
           <section><SectionHeading title="Platform settings" description="Rules used by reports and review timing. Changes apply to the live platform." />
             <form onSubmit={(event) => { event.preventDefault(); void action("/admin/settings", settings, "patch"); }} className={`${panel} max-w-2xl overflow-hidden`}><div className="space-y-6 p-5 sm:p-7"><div><h3 className="font-semibold">Review operations</h3><p className="mt-1 text-sm text-[#66716a]">Set when reviews become overdue and when a seller enters the hygiene watchlist.</p></div><div className="grid gap-5 sm:grid-cols-2"><label className="block text-sm font-medium">Review target <span className="block text-xs font-normal text-[#66716a]">Hours before a pending review is overdue</span><input type="number" min="1" max="168" value={settings.review_sla_hours} onChange={(event) => setSettings({ ...settings, review_sla_hours: Number(event.target.value) })} className={inputClass} /></label><label className="block text-sm font-medium">Watchlist threshold <span className="block text-xs font-normal text-[#66716a]">Open hygiene reports needed to flag a kitchen</span><input type="number" min="1" max="20" value={settings.hygiene_flag_threshold} onChange={(event) => setSettings({ ...settings, hygiene_flag_threshold: Number(event.target.value) })} className={inputClass} /></label></div><label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[#e3e9e1] bg-[#f8faf7] p-4"><input type="checkbox" checked={settings.notifications_enabled} onChange={(event) => setSettings({ ...settings, notifications_enabled: event.target.checked })} className="mt-1 accent-[#315e42]" /><span><strong className="block text-sm">Admin notifications</strong><span className="mt-0.5 block text-xs text-[#66716a]">Send operational notifications when enabled.</span></span></label></div><div className="flex justify-end border-t border-[#e7ece6] bg-[#f7f9f5] px-5 py-4 sm:px-7"><button className={primaryButton}>Save settings</button></div></form>

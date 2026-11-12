@@ -11,8 +11,8 @@ export const Route = createFileRoute("/account")({
 });
 
 function AccountPage() {
-  const { user, logout, refreshUser } = useAuth();
-  const { role, setRole } = useCart();
+  const { user, logout, refreshUser, switchWorkspace } = useAuth();
+  const { role } = useCart();
   const navigate = useNavigate();
   const [name, setName] = useState(user?.name || "");
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -68,27 +68,26 @@ function AccountPage() {
                 <div key={address.id} className="mt-2 border-t border-border pt-2 text-sm">{address.label}: {address.line1}, {address.area}, {address.city}</div>
               ))}
             </section>
-            <section className="mt-5 rounded-2xl border border-border bg-card p-4">
-              <h2 className="font-display font-bold">Your view</h2>
-              <p className="mt-1 text-xs text-muted-foreground">This changes the navigation on this device. Seller access still requires approval.</p>
+            {user.role === "admin" ? <Link to="/admin" className="mt-5 inline-block text-sm font-semibold text-primary">Open admin workspace →</Link> : <section className="mt-5 rounded-2xl border border-border bg-card p-4">
+              <h2 className="font-display font-bold">Your workspace</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Use the same login to buy meals or manage a kitchen. Selling requires training and approval.</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {(["student", "vendor", "both"] as const).map((option) => (
+                {(["student", "vendor"] as const).map((option) => (
                   <button key={option} onClick={async () => {
                     try {
-                      await api.patch("/users/me/preferences", { view_preference: option === "student" ? "buyer" : option === "vendor" ? "seller" : "both" });
-                      setRole(option);
-                      await refreshUser();
+                      await switchWorkspace(option === "student" ? "buyer" : "seller");
+                      navigate({ to: option === "student" ? "/" : "/dashboard" });
                     } catch (err) {
                       setError(err instanceof Error ? err.message : "Could not save preference");
                     }
                   }}
                     className={"rounded-full border px-4 py-2 text-sm " + (role === option ? "bg-gradient-spice text-white" : "bg-background")}>
-                    {option === "student" ? "Buy" : option === "vendor" ? "Sell" : "Both"}
+                    {option === "student" ? "Continue as buyer" : "Continue as seller"}
                   </button>
                 ))}
               </div>
               {(role === "vendor" || role === "both") && <Link to="/dashboard" className="mt-4 inline-block text-sm font-semibold text-primary">Open kitchen dashboard →</Link>}
-            </section>
+            </section>}
             <button onClick={async () => { await logout(); navigate({ to: "/login" }); }}
               className="mt-5 w-full rounded-xl border border-border bg-card py-3 text-sm font-semibold text-destructive">Sign out</button>
           </>

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -50,6 +50,7 @@ class Kitchen(Base):
     bio: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(20), default="pending")
     training_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     retraining_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     dishes: Mapped[list["Dish"]] = relationship(back_populates="kitchen")
@@ -64,6 +65,7 @@ class Dish(Base):
     name: Mapped[str] = mapped_column(String(140))
     description: Mapped[str] = mapped_column(Text, default="")
     price_pkr: Mapped[int] = mapped_column(Integer)
+    cost_per_portion_pkr: Mapped[int | None] = mapped_column(Integer)
     portion_size: Mapped[str] = mapped_column(String(20), default="regular")
     image_url: Mapped[str | None] = mapped_column(Text)
     portions_available: Mapped[int] = mapped_column(Integer)
@@ -71,6 +73,7 @@ class Dish(Base):
     tag: Mapped[str | None] = mapped_column(String(80))
     status: Mapped[str] = mapped_column(String(20), default="pending_review")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    review_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=utc_now)
     kitchen: Mapped[Kitchen] = relationship(back_populates="dishes")
 
 
@@ -90,7 +93,11 @@ class Address(Base):
 
 class Order(Base):
     __tablename__ = "orders"
-    __table_args__ = (UniqueConstraint("buyer_id", "idempotency_key"),)
+    __table_args__ = (
+        UniqueConstraint("buyer_id", "idempotency_key"),
+        Index("ix_orders_status_placed_at", "status", "placed_at"),
+        Index("ix_orders_kitchen_placed_at", "kitchen_id", "placed_at"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     buyer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
@@ -176,6 +183,7 @@ class TrainingAcknowledgement(Base):
 
 class ProofSubmission(Base):
     __tablename__ = "proof_submissions"
+    __table_args__ = (Index("ix_proofs_status_submitted_at", "status", "submitted_at"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
@@ -206,7 +214,10 @@ class Review(Base):
 
 class HygieneReport(Base):
     __tablename__ = "hygiene_reports"
-    __table_args__ = (UniqueConstraint("order_id", "buyer_id", name="uq_hygiene_reports_order_buyer"),)
+    __table_args__ = (
+        UniqueConstraint("order_id", "buyer_id", name="uq_hygiene_reports_order_buyer"),
+        Index("ix_hygiene_status_kitchen", "status", "kitchen_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"), index=True)
@@ -227,6 +238,17 @@ class ModerationEvent(Base):
     action: Mapped[str] = mapped_column(String(40))
     reason: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ReviewAssignment(Base):
+    __tablename__ = "review_assignments"
+    __table_args__ = (UniqueConstraint("target_type", "target_id", name="uq_review_assignment_target"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    target_type: Mapped[str] = mapped_column(String(30))
+    target_id: Mapped[str] = mapped_column(String(36))
+    reviewer_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), index=True)
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class AdminSetting(Base):

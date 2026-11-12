@@ -18,6 +18,7 @@ type AuthContext = {
   verifyEmail: (code: string) => Promise<void>;
   resendEmail: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  switchWorkspace: (workspace: "buyer" | "seller") => Promise<ApiUser>;
 };
 
 type SessionResponse = {
@@ -98,9 +99,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api.get<ApiUser>("/users/me"));
   };
 
+  const switchWorkspace = async (workspace: "buyer" | "seller") => {
+    const updated = await api.patch<ApiUser>("/users/me/preferences", { view_preference: workspace });
+    setUser(updated);
+    return updated;
+  };
+
   return (
     <AuthCtx.Provider
-      value={{ user, hydrated, signup, login, logout, verifyEmail, resendEmail, refreshUser }}
+      value={{ user, hydrated, signup, login, logout, verifyEmail, resendEmail, refreshUser, switchWorkspace }}
     >
       {children}
     </AuthCtx.Provider>

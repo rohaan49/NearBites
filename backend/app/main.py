@@ -29,6 +29,7 @@ from .schemas import (
     AvailabilityIn,
     DecisionIn,
     DishIn,
+    DishCostIn,
     DishPatch,
     KitchenIn,
     KitchenPatch,
@@ -48,6 +49,8 @@ from .media import router as media_router
 from .training import router as training_router
 from .operations import router as operations_router
 from .analytics import router as analytics_router
+from .review_queue import router as review_queue_router
+from .analytics_extended import router as analytics_extended_router
 from .admin_users import router as admin_users_router
 from .chefcam import router as chefcam_router
 
@@ -58,6 +61,8 @@ api.include_router(media_router)
 api.include_router(training_router)
 api.include_router(operations_router)
 api.include_router(analytics_router)
+api.include_router(review_queue_router)
+api.include_router(analytics_extended_router)
 api.include_router(admin_users_router)
 api.include_router(chefcam_router)
 api.add_middleware(
@@ -101,6 +106,7 @@ def kitchen_out(kitchen: Kitchen) -> dict:
         "bio": kitchen.bio,
         "status": kitchen.status,
         "training_verified": kitchen.training_verified,
+        "verified_at": kitchen.verified_at if kitchen.training_verified else None,
         "is_sample": kitchen.status == "sample",
         "is_demo": kitchen.owner.email.endswith("@demo.nearbites.invalid"),
         "created_at": kitchen.created_at,
@@ -339,6 +345,8 @@ def update_me(payload: ProfilePatch, user: CurrentUser, db: Db) -> dict:
 
 @api.patch("/users/me/preferences")
 def update_preferences(payload: PreferenceIn, user: CurrentUser, db: Db) -> dict:
+    if user.role == "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin accounts use the admin workspace")
     user.view_preference = payload.view_preference
     db.commit()
     return user_out(user)
@@ -451,6 +459,7 @@ def create_kitchen(payload: KitchenIn, user: CurrentUser, db: Db) -> dict:
         raise HTTPException(status.HTTP_409_CONFLICT, "Kitchen already exists")
     kitchen = Kitchen(owner_id=user.id, **payload.model_dump())
     user.role = "seller"
+    user.view_preference = "seller"
     db.add(kitchen)
     db.commit()
     db.refresh(kitchen)
@@ -475,7 +484,7 @@ def update_kitchen(payload: KitchenPatch, user: CurrentUser, db: Db) -> dict:
 def own_listings(user: CurrentUser, db: Db) -> dict:
     kitchen = own_kitchen(db, user)
     items = db.scalars(select(Dish).where(Dish.kitchen_id == kitchen.id)).all()
-    return {"items": [dish_out(item) for item in items]}
+    return {"items": [{**dish_out(item), "cost_per_portion_pkr": item.cost_per_portion_pkr} for item in items]}
 
 
 @api.post("/seller/listings", status_code=201)
@@ -484,12 +493,22 @@ def create_listing(payload: DishIn, user: CurrentUser, db: Db) -> dict:
     if kitchen.status != "active" or not kitchen.training_verified:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Kitchen approval and training are required")
     image_url = validate_listing_image(db, user, payload.image_url)
+    if not image_url:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Add a dish photo before review")
+    if len(payload.description.strip()) < 10:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Describe the dish and its ingredients before review")
+    if len(payload.name.strip()) < 2:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Enter a dish name")
+    if db.scalar(select(Dish.id).where(Dish.kitchen_id == kitchen.id, func.lower(Dish.name) == payload.name.strip().lower(), Dish.status.in_(["pending_review", "approved", "paused"]))):
+        raise HTTPException(status.HTTP_409_CONFLICT, "A listing with this name already exists")
     item = Dish(
         kitchen_id=kitchen.id,
         portions_total=payload.portions_available,
-        **{**payload.model_dump(), "image_url": image_url},
+        **{**payload.model_dump(), "name": payload.name.strip(), "description": payload.description.strip(), "image_url": image_url},
     )
     db.add(item)
+    db.flush()
+    db.add(ModerationEvent(actor_id=user.id, target_type="listing", target_id=item.id, action="submit_review"))
     db.commit()
     db.refresh(item)
     return dish_out(item)
@@ -502,14 +521,39 @@ def update_listing(listing_id: str, payload: DishPatch, user: CurrentUser, db: D
     if item is None or item.kitchen_id != kitchen.id:
         raise not_found("Listing")
     changes = payload.model_dump(exclude_unset=True)
+    if "name" in changes:
+        changes["name"] = changes["name"].strip()
+        if len(changes["name"]) < 2:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Enter a dish name")
+    if "description" in changes:
+        changes["description"] = changes["description"].strip()
+        if len(changes["description"]) < 10:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Describe the dish and its ingredients before review")
     if "image_url" in changes:
         changes["image_url"] = validate_listing_image(db, user, changes["image_url"])
+        if not changes["image_url"]:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A dish photo is required")
+    if "name" in changes and db.scalar(select(Dish.id).where(Dish.kitchen_id == kitchen.id, Dish.id != item.id, func.lower(Dish.name) == changes["name"].strip().lower(), Dish.status.in_(["pending_review", "approved", "paused"]))):
+        raise HTTPException(status.HTTP_409_CONFLICT, "A listing with this name already exists")
     for key, value in changes.items():
         setattr(item, key, value)
     if set(changes) - {"portions_available"}:
         item.status = "pending_review"
+        item.review_requested_at = datetime.now(timezone.utc)
+        db.add(ModerationEvent(actor_id=user.id, target_type="listing", target_id=item.id, action="submit_review"))
     db.commit()
     return dish_out(item)
+
+
+@api.patch("/seller/listings/{listing_id}/cost")
+def update_listing_cost(listing_id: str, payload: DishCostIn, user: CurrentUser, db: Db) -> dict:
+    kitchen = own_kitchen(db, user)
+    item = db.get(Dish, listing_id)
+    if item is None or item.kitchen_id != kitchen.id:
+        raise not_found("Listing")
+    item.cost_per_portion_pkr = payload.cost_per_portion_pkr
+    db.commit()
+    return {"id": item.id, "cost_per_portion_pkr": item.cost_per_portion_pkr}
 
 
 @api.patch("/seller/listings/{listing_id}/availability")
@@ -577,6 +621,8 @@ def delete_address(address_id: str, user: CurrentUser, db: Db) -> None:
 
 @api.post("/orders/quote")
 def quote(payload: QuoteIn, user: CurrentUser, db: Db) -> dict:
+    if user.role == "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin accounts cannot place orders")
     if not user.email_verified:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Verify your email first")
     priced, subtotal, delivery_fee, vendor_id = priced_lines(
@@ -602,6 +648,8 @@ def create_order(
     db: Db,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=100)],
 ) -> dict:
+    if user.role == "admin":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin accounts cannot place orders")
     if not user.email_verified:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Verify your email first")
     existing = db.scalar(

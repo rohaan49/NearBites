@@ -48,7 +48,7 @@ class KitchenPatch(BaseModel):
 
 class DishIn(BaseModel):
     name: str = Field(min_length=2, max_length=140)
-    description: str = Field(default="", max_length=2000)
+    description: str = Field(min_length=10, max_length=2000)
     price_pkr: int = Field(gt=0, le=100_000)
     portion_size: Literal["small", "regular", "large"] = "regular"
     image_url: str | None = Field(default=None, max_length=2000)
@@ -58,12 +58,16 @@ class DishIn(BaseModel):
 
 class DishPatch(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=140)
-    description: str | None = Field(default=None, max_length=2000)
+    description: str | None = Field(default=None, min_length=10, max_length=2000)
     price_pkr: int | None = Field(default=None, gt=0, le=100_000)
     portion_size: Literal["small", "regular", "large"] | None = None
     image_url: str | None = Field(default=None, max_length=2000)
     portions_available: int | None = Field(default=None, ge=0, le=10_000)
     tag: str | None = Field(default=None, max_length=80)
+
+
+class DishCostIn(BaseModel):
+    cost_per_portion_pkr: int | None = Field(default=None, ge=0, le=100_000)
 
 
 class AvailabilityIn(BaseModel):

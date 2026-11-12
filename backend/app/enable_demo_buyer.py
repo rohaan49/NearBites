@@ -16,9 +16,12 @@ def main() -> None:
         raise SystemExit("Set DEMO_BUYER_PASSWORD to at least 10 characters")
     email = "sample-buyer-1@demo.nearbites.invalid"
     with SessionLocal() as db:
-        buyer = db.scalar(select(User).where(User.email == email, User.role == "buyer"))
+        buyer = db.scalar(select(User).where(User.email == email))
         if buyer is None:
             raise SystemExit("Run python -m app.seed_islamabad_samples first")
+        # A presenter may previously have switched this fictional account to seller mode.
+        buyer.role = "buyer"
+        buyer.view_preference = "buyer"
         buyer.password_hash = password_hash.hash(password)
         buyer.email_verified = True
         db.commit()

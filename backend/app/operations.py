@@ -234,6 +234,7 @@ def recommendations(user: CurrentUser, db: Db, limit: int = Query(3, ge=1, le=20
         )
     ).all()
     ranked = sorted(rows, key=lambda pair: (int(pair[1]) + familiar.get(pair[0].kitchen_id, 0) * 3, pair[0].created_at), reverse=True)[:limit]
+    max_sold = max((int(sold) for _, sold in ranked), default=0)
     return {
         "items": [
             {
@@ -253,6 +254,8 @@ def recommendations(user: CurrentUser, db: Db, limit: int = Query(3, ge=1, le=20
                 "is_sample": False,
                 "is_demo": dish.kitchen.owner.email.endswith("@demo.nearbites.invalid"),
                 "sold": int(sold),
+                "match_score": min(98, 48 + round(30 * int(sold) / max_sold if max_sold else 0) + (20 if familiar.get(dish.kitchen_id) else 0)),
+                "reason": f"You have ordered from {dish.kitchen.name} before" if familiar.get(dish.kitchen_id) else "Popular with buyers on NearBites",
             }
             for dish, sold in ranked
         ]
