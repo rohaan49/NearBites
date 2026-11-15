@@ -77,6 +77,10 @@ def enrich_demo_data(db, buyers: list[User], sellers: list[User], now: datetime)
                         portions_available=0, portions_total=0, tag="Demo menu", status="sample"))
     db.flush()
     menus = [db.scalars(select(Dish).where(Dish.kitchen_id == kitchen.id, Dish.status == "sample").order_by(Dish.name)).all() for kitchen in kitchens]
+    for menu in menus:
+        for dish in menu:
+            dish.portions_total = max(dish.portions_total, 8)
+            dish.portions_available = max(dish.portions_available, 4)
 
     def add_order(key: str, buyer: User, kitchen: Kitchen, menu: list[Dish], placed_at: datetime, paired: bool = False) -> Order:
         order_id = demo_id("expanded-order", key)
@@ -141,6 +145,40 @@ def enrich_demo_data(db, buyers: list[User], sellers: list[User], now: datetime)
                                       comment=review_texts[(seller_index + position) % len(review_texts)],
                                       created_at=placed + timedelta(hours=2)))
 
+    # Give every sample kitchen enough dated history for forecasts, repeat buyers,
+    # dish comparisons, review topics and a useful seller dashboard. All records
+    # remain deterministic fictional history attached to non-orderable menus.
+    roman_reviews = [
+        "Demo review: biryani ka zaiqa bohat acha tha aur masala theek tha.",
+        "Demo review: dabba leak ho gaya aur packing achi nahi thi.",
+        "Demo review: delivery jaldi ayi, khana garam mila.",
+        "Demo review: portion chota tha aur qeemat zyada lagi.",
+        "Demo review: khane mein baal mila, safai ka khayal rakhein.",
+        "Demo review: khana tasty tha magar rider late aya.",
+        "Demo review: quantity achi thi aur box bilkul theek tha.",
+        "Demo review: khana thanda tha aur packing bhi kharab thi.",
+    ]
+    for seller_index, kitchen in enumerate(kitchens):
+        menu = menus[seller_index]
+        for week in range(12):
+            for weekday in range(7):
+                # A regular weekly rhythm with slightly different volume for each kitchen.
+                volume = 1 + int(weekday in {4, 5} and (week + seller_index) % 2 == 0)
+                for slot in range(volume):
+                    days_ago = 84 - week * 7 - weekday
+                    placed = now - timedelta(days=days_ago, hours=2 + slot)
+                    buyer = buyers[(seller_index + weekday + slot * 3) % len(buyers)]
+                    rotated = menu[(week + weekday + slot) % len(menu):] + menu[:(week + weekday + slot) % len(menu)]
+                    key = f"all-kitchens:{seller_index}:{week}:{weekday}:{slot}"
+                    order = add_order(key, buyer, kitchen, rotated, placed, paired=(week + weekday + slot) % 3 == 0)
+                    if (week + weekday + slot) % 3 == 0:
+                        review_id = demo_id("all-kitchens-review", key)
+                        if db.get(Review, review_id) is None:
+                            db.add(Review(id=review_id, order_id=order.id, buyer_id=buyer.id,
+                                          kitchen_id=kitchen.id, rating=3 + (week + weekday) % 3,
+                                          comment=roman_reviews[(seller_index + week + weekday + slot) % len(roman_reviews)],
+                                          created_at=placed + timedelta(hours=2)))
+
     # Eight distinct dishes and several dish pairs make the featured seller's insights readable.
     topic_review_texts = [
         "Demo review: the biryani tasted delicious and spicy.",
@@ -198,7 +236,14 @@ def enrich_demo_data(db, buyers: list[User], sellers: list[User], now: datetime)
             add_order(f"first-buyer:{index}:{visit}", buyer, kitchens[0], [menus[0][index]],
                       first + timedelta(days=7 * visit))
 
-    # Regulars who stopped ordering from the first seller, alongside active repeat buyers.
+    # Each seller has one formerly regular buyer who has gone quiet at that kitchen.
+    quiet_buyer = db.scalar(select(User).where(User.email == "demo-first-buyer-1@demo.nearbites.invalid"))
+    for seller_index, kitchen in enumerate(kitchens):
+        for visit, days_ago in enumerate((58, 50, 42)):
+            add_order(f"quiet-regular:{seller_index}:{visit}", quiet_buyer, kitchen, menus[seller_index],
+                      now - timedelta(days=days_ago, hours=4), paired=visit % 2 == 0)
+
+    # Additional regulars who stopped ordering from the first seller.
     for buyer_index in range(4, 10):
         for visit, days_ago in enumerate((58, 50, 42)):
             add_order(f"dormant:{buyer_index}:{visit}", buyers[buyer_index], kitchens[0], menus[0],
@@ -210,11 +255,24 @@ def enrich_demo_data(db, buyers: list[User], sellers: list[User], now: datetime)
     test_kitchen.verified_at = now - timedelta(days=45)
     test_dishes = db.scalars(select(Dish).where(Dish.kitchen_id == test_kitchen.id, Dish.status == "approved").order_by(Dish.name)).all()
     today_local = now.astimezone(MARKET_TZ).date()
-    for dish_index, dish in enumerate(test_dishes[:3]):
-        for week in range(1, 5):
-            local_date = today_local - timedelta(days=week * 7)
-            placed = datetime.combine(local_date, time(13, dish_index * 10), MARKET_TZ).astimezone(timezone.utc)
-            add_order(f"buyer-reorder:{dish_index}:{week}", buyers[0], test_kitchen, [dish], placed)
+    all_demo_buyers = buyers + [db.scalar(select(User).where(User.email == f"demo-first-buyer-{index + 1}@demo.nearbites.invalid")) for index in range(6)]
+    for buyer_index, buyer in enumerate(all_demo_buyers):
+        # Make every sample buyer's default delivery location usable for the local test kitchen.
+        nearby_id = demo_id("nearby-address", str(buyer_index))
+        nearby = db.get(Address, nearby_id)
+        if nearby is None:
+            nearby = Address(id=nearby_id, user_id=buyer.id, label="Demo nearby address",
+                             line1="Fictional F-6 street", area="F-6", city="Islamabad",
+                             latitude=33.7295, longitude=73.0755, is_default=True)
+            db.add(nearby)
+        for address in db.scalars(select(Address).where(Address.user_id == buyer.id)).all():
+            address.is_default = address.id == nearby_id
+        nearby.is_default = True
+        for dish_index, dish in enumerate(test_dishes[:3]):
+            for week in range(1, 5):
+                local_date = today_local - timedelta(days=week * 7)
+                placed = datetime.combine(local_date, time(13, dish_index * 10), MARKET_TZ).astimezone(timezone.utc)
+                add_order(f"buyer-reorder-all:{buyer_index}:{dish_index}:{week}", buyer, test_kitchen, [dish], placed)
 
     # Ten varied hygiene cases, including an open watchlist and completed decisions.
     first_kitchen_orders = [row for row in recent_orders if row.kitchen_id == kitchens[0].id]
@@ -334,6 +392,8 @@ def main() -> None:
             kitchen.verified_at = now - timedelta(days=[5, 12, 22, 40, 65, 85][index]) if index < 6 else None
             for sample_dish in db.scalars(select(Dish).where(Dish.kitchen_id == kitchen.id, Dish.status == "sample")).all():
                 sample_dish.cost_per_portion_pkr = round(sample_dish.price_pkr * (0.58 if index % 3 else 0.86))
+                sample_dish.portions_total = max(sample_dish.portions_total, 8)
+                sample_dish.portions_available = max(sample_dish.portions_available, 4 + index % 3)
             for module in modules:
                 count = len(json.loads(module.questions_json))
                 quiz_id = demo_id("quiz", f"{index}:{module.id}")
@@ -365,7 +425,7 @@ def main() -> None:
                     # Explicit simulation for the shadow chart, never model output or safety evidence.
                     confidence = 0.91 if index % 3 != 0 else 0.66
                     proof.model_result_json = json.dumps({"demo_synthetic": True, "model": "fictional illustration", "detections": [{"label": "hairnet", "confidence": confidence}, {"label": "glove", "confidence": confidence - 0.01}]})
-            if index < 5:
+            if index < len(sellers):
                 dish_name, description, price, portion, tag, photo = KITCHENS[index][3][0]
                 existing = db.scalar(select(Dish).where(Dish.kitchen_id == kitchen.id, Dish.name == dish_name))
                 photo_dish = db.scalar(select(Dish).where(Dish.kitchen_id == kitchen.id, Dish.status == "sample", Dish.image_url.is_not(None)))

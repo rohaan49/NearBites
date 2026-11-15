@@ -1,8 +1,10 @@
+import { useLanguage } from "@/lib/language";
 import { useEffect, useRef, useState } from "react";
 
 type Props = { photo: File | null; onChange: (photo: File | null) => void };
 
 export function DishPhotoPicker({ photo, onChange }: Props) {
+  const { t } = useLanguage();
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -80,24 +82,24 @@ export function DishPhotoPicker({ photo, onChange }: Props) {
 
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold">Dish photo</p>
+      <p className="mb-2 text-sm font-semibold">{t("Dish photo")}</p>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={openCamera} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold">Open camera</button>
-        <label htmlFor="dish-phone-camera" className="cursor-pointer rounded-xl border border-border px-4 py-2 text-sm font-semibold">Take photo on phone</label>
+        <button type="button" onClick={openCamera} className="rounded-xl border border-border px-4 py-2 text-sm font-semibold">{t("Open camera")}</button>
+        <label htmlFor="dish-phone-camera" className="cursor-pointer rounded-xl border border-border px-4 py-2 text-sm font-semibold">{t("Take photo on phone")}</label>
         <input id="dish-phone-camera" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={chooseFile} />
-        <label htmlFor="dish-upload" className="cursor-pointer rounded-xl border border-border px-4 py-2 text-sm font-semibold">Choose existing photo</label>
+        <label htmlFor="dish-upload" className="cursor-pointer rounded-xl border border-border px-4 py-2 text-sm font-semibold">{t("Choose existing photo")}</label>
         <input id="dish-upload" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={chooseFile} />
       </div>
       {cameraOpen && <div className="mt-3 space-y-2">
         <video ref={video} autoPlay playsInline muted className="w-full max-w-md rounded-xl bg-black" />
         <div className="flex gap-2">
-          <button type="button" onClick={capture} disabled={capturing} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{capturing ? "Capturing…" : "Capture photo"}</button>
-          <button type="button" onClick={closeCamera} className="rounded-xl border border-border px-4 py-2 text-sm">Close camera</button>
+          <button type="button" onClick={capture} disabled={capturing} className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{capturing ? t("Capturing…") : t("Capture photo")}</button>
+          <button type="button" onClick={closeCamera} className="rounded-xl border border-border px-4 py-2 text-sm">{t("Close camera")}</button>
         </div>
       </div>}
-      {previewUrl && <img src={previewUrl} alt="Selected dish photo" className="mt-3 h-36 w-48 rounded-xl border border-border object-cover" />}
-      {photo && <p className="mt-2 text-xs text-muted-foreground" role="status">Ready to submit: {photo.name}</p>}
-      {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
+      {previewUrl && <img src={previewUrl} alt={t("Selected dish photo")} className="mt-3 h-36 w-48 rounded-xl border border-border object-cover" />}
+      {photo && <p className="mt-2 text-xs text-muted-foreground" role="status">{t("Ready to submit:")} {photo.name}</p>}
+      {error && <p className="mt-2 text-sm text-destructive" role="alert">{t(error)}</p>}
     </div>
   );
 }

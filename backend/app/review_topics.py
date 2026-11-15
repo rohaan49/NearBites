@@ -110,8 +110,86 @@ EVAL_MIXED = [
     ("The food seemed unsafe and arrived late", ("hygiene", "delivery")),
 ]
 
+# Fictional Roman Urdu written as customers commonly type it. These are
+# separate from the held-out Roman Urdu examples below.
+ROMAN_TRAIN = {
+    "taste": [
+        "Biryani ka zaiqa bohat acha tha", "Karahi ka masala lajawab tha",
+        "Daal bilkul pheeki thi", "Khana mazedar aur garam tha",
+        "Namak bohat zyada tha", "Mirch meri pasand se zyada thi",
+        "Zaiqa ghar jaisa tha", "Curry ka taste bilkul acha nahi tha",
+        "Masalay bilkul balanced thay", "Kheer bohat meethi thi",
+        "Khana khanay mein laziz laga", "Pulao ka zaiqa zabardast tha",
+        "Salan ka taste pheeka laga", "Biryani mein mirch kam thi",
+        "Kebab ka masala bohat acha tha", "Gravy ka zaiqa ajeeb tha",
+    ],
+    "packaging": [
+        "Dabba raste mein leak ho gaya", "Packing bohat achi aur mazboot thi",
+        "Box ka dhakkan khula hua tha", "Khana packet se gir gaya",
+        "Dabba theek se band nahi tha", "Packing ne khana mehfooz rakha",
+        "Shorba bag mein leak hua", "Plastic container toot gaya",
+        "Box bilkul sealed mila", "Packet geela ho gaya tha",
+        "Roti achi tarah wrap ki gayi", "Packing ki wajah se salan gir gaya",
+        "Dabbe ka seal mazboot tha", "Khana saaf box mein pack tha",
+        "Bag phata hua mila", "Container bilkul theek pohancha",
+    ],
+    "delivery": [
+        "Rider bohat late aya", "Delivery waqt par pohanch gayi",
+        "Order jaldi ghar pohanch gaya", "Rider ko mera address nahi mila",
+        "Khana pohanchne mein der hui", "Delivery aik ghanta late thi",
+        "Rider ne pehle call ki", "Order waqt se pehle aya",
+        "Delivery bohat slow thi", "Rider galat gali mein chala gaya",
+        "Khana jaldi deliver hua", "Order mujhe der se mila",
+        "Rider sahi time par pohancha", "Delivery ka intezar lamba tha",
+        "Order bilkul time se aya", "Rider ne darwazay par khana diya",
+    ],
+    "portion_value": [
+        "Portion qeemat ke hisaab se chota tha", "Quantity bohat achi thi",
+        "Itne paison mein khana kam tha", "Serving bari aur filling thi",
+        "Qeemat bohat zyada lagi", "Hissa mere liye kafi tha",
+        "Paise wasool khana mila", "Plate mein chawal kam thay",
+        "Portion bohat chota nikla", "Quantity ke muqable mein price theek tha",
+        "Khana mehnga tha", "Serving do logon ke liye kafi thi",
+        "Mujhe zyada quantity ki umeed thi", "Qeemat munasib thi",
+        "Paison ke mutabiq portion acha tha", "Plate aadhi bhari thi",
+    ],
+    "hygiene": [
+        "Khane mein baal mila", "Dabbe ke andar gandagi thi",
+        "Khana saaf suthra laga", "Salan se ajeeb badboo aa rahi thi",
+        "Khane mein makhi thi", "Safai ka khayal nahi rakha gaya",
+        "Kitchen bohat saaf nazar aya", "Khana kharab smell kar raha tha",
+        "Plate mein keera mila", "Cook ke hath gande thay",
+        "Khana hygienic laga", "Food mein plastic ka tukra tha",
+        "Dabba andar se ganda tha", "Kitchen ki safai achi thi",
+        "Khana dekh kar safai par shak hua", "Meal mein baal dekh kar pareshan hui",
+    ],
+}
+ROMAN_EVALUATION = {
+    "taste": ["Zaiqa bohat mazedar nikla", "Salan mein namak zyada tha", "Biryani pheeki lagi", "Masala bilkul sahi tha"],
+    "packaging": ["Dabbe se salan leak hua", "Box ka dhakkan mazboot tha", "Packet phata hua aya", "Khana achi packing mein tha"],
+    "delivery": ["Rider der se pohancha", "Order waqt par mila", "Delivery mein bohat intezar karna para", "Rider mera ghar dhoond nahi saka"],
+    "portion_value": ["Itni qeemat mein portion kam laga", "Quantity paise wasool thi", "Serving kafi bari thi", "Price ke muqable mein khana mehnga tha"],
+    "hygiene": ["Chawal mein baal nazar aya", "Khana saaf nahi laga", "Dabbe mein makhi mili", "Kitchen mein safai nazar ayi"],
+}
+ROMAN_TRAIN_MIXED = [
+    ("Khana mazedar tha lekin dabba leak hua", ("taste", "packaging")),
+    ("Rider late aya aur portion bohat chota tha", ("delivery", "portion_value")),
+    ("Khana pheeka tha aur box phata hua tha", ("taste", "packaging")),
+    ("Delivery jaldi hui magar khane mein baal mila", ("delivery", "hygiene")),
+    ("Packing achi thi aur serving kafi bari thi", ("packaging", "portion_value")),
+    ("Khana mehnga tha aur safai bhi achi nahi thi", ("portion_value", "hygiene")),
+    ("Zaiqa acha tha magar rider der se aya", ("taste", "delivery")),
+    ("Box ganda tha aur salan se badboo aa rahi thi", ("packaging", "hygiene")),
+]
+ROMAN_EVAL_MIXED = [
+    ("Biryani ka zaiqa acha tha lekin packing leak hui", ("taste", "packaging")),
+    ("Delivery late thi aur portion kam tha", ("delivery", "portion_value")),
+    ("Khane mein baal mila aur dabba bhi ganda tha", ("hygiene", "packaging")),
+    ("Quantity kafi thi magar masala pheeka tha", ("portion_value", "taste")),
+]
+
 TOKEN = re.compile(r"[a-z]+")
-STOP_WORDS = {"a", "an", "and", "as", "at", "be", "but", "by", "for", "from", "had", "has", "in", "is", "it", "my", "of", "on", "or", "the", "this", "to", "was", "were", "with", "demo", "review"}
+STOP_WORDS = {"a", "an", "and", "as", "at", "be", "but", "by", "for", "from", "had", "has", "in", "is", "it", "my", "of", "on", "or", "the", "this", "to", "was", "were", "with", "demo", "review", "aur", "hai", "hain", "tha", "thi", "thay", "bohat", "bht", "mein", "se", "ka", "ki", "ke", "ko", "ne", "mujhe", "lekin", "magar"}
 DECISION_THRESHOLD = 0.5
 
 
@@ -127,8 +205,10 @@ def sigmoid(value: float) -> float:
 
 class ReviewTopicModel:
     def __init__(self) -> None:
-        train = [(text, (topic,)) for topic, texts in TRAIN.items() for text in texts] + TRAIN_MIXED
-        evaluation = [(text, (topic,)) for topic, texts in EVALUATION.items() for text in texts] + EVAL_MIXED
+        train = ([(text, (topic,)) for topic, texts in TRAIN.items() for text in texts] + TRAIN_MIXED
+                 + [(text, (topic,)) for topic, texts in ROMAN_TRAIN.items() for text in texts] + ROMAN_TRAIN_MIXED)
+        evaluation = ([(text, (topic,)) for topic, texts in EVALUATION.items() for text in texts] + EVAL_MIXED
+                      + [(text, (topic,)) for topic, texts in ROMAN_EVALUATION.items() for text in texts] + ROMAN_EVAL_MIXED)
         self.idf: dict[str, float] = {}
         counts = Counter(word for text, _ in train for word in features(text))
         self.idf = {word: math.log((1 + len(train)) / (1 + count)) + 1 for word, count in counts.items()}
@@ -157,6 +237,10 @@ class ReviewTopicModel:
             self.weights[topic] = weights
             self.biases[topic] = bias
         self.evaluation = self.evaluate(evaluation)
+        roman_evaluation = [(text, (topic,)) for topic, texts in ROMAN_EVALUATION.items() for text in texts] + ROMAN_EVAL_MIXED
+        self.roman_evaluation = self.evaluate(roman_evaluation)
+        self.roman_training_examples = sum(len(texts) for texts in ROMAN_TRAIN.values()) + len(ROMAN_TRAIN_MIXED)
+        self.roman_evaluation_examples = len(roman_evaluation)
         self.training_examples = len(train)
         self.evaluation_examples = len(evaluation)
 

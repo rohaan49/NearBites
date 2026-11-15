@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .models import Address, Dish, HygieneReport, Kitchen, ModerationEvent, Order, OrderItem, ProofSubmission, Review, User
 from .review_topics import LABELS, TOPICS, get_model
+from .forecasting import compare_forecasts
 from .security import current_user, require_admin
 
 
@@ -72,7 +73,14 @@ def seller_opportunities(user: CurrentUser, db: Db) -> dict:
         for pair, count in pair_counts.most_common(5) if count >= 2
     ]
 
-    keywords = {"cold": r"\bcold\b", "late": r"\blate\b", "packaging": r"\bpackag\w*\b", "spicy": r"\bspic\w*\b", "fresh": r"\bfresh\b", "portion": r"\bportion\w*\b", "taste": r"\btast\w*\b"}
+    keywords = {
+        "cold": r"\b(?:cold|thanda|thandi)\b", "late": r"\b(?:late|der|delay)\b",
+        "packaging": r"\b(?:packag\w*|packing|dabba|box|container|packet)\b",
+        "spicy": r"\b(?:spic\w*|mirch|masala|teekha)\b",
+        "fresh": r"\b(?:fresh|taaza)\b",
+        "portion": r"\b(?:portion\w*|quantity|hissa|serving)\b",
+        "taste": r"\b(?:tast\w*|zaiqa|mazedar|pheeka)\b",
+    }
     reviews = db.scalars(select(Review).where(Review.kitchen_id == kitchen.id, Review.created_at >= since)).all()
     word_counts: Counter[str] = Counter()
     current_words: Counter[str] = Counter()
@@ -115,6 +123,7 @@ def seller_opportunities(user: CurrentUser, db: Db) -> dict:
             entry["estimated_gross_margin_pkr"] += item.quantity * (item.unit_price_pkr - dish.cost_per_portion_pkr)
 
     dish_planning = []
+    surplus_advice = []
     for dish in dishes.values():
         a, b = previous_qty[dish.id], recent_qty[dish.id]
         if a + b < 10:
@@ -129,15 +138,48 @@ def seller_opportunities(user: CurrentUser, db: Db) -> dict:
             "price_note": "Estimated gross margin is below 20%; review price or cost" if margin_ratio is not None and margin_ratio < 0.2 else "Order trend alone cannot determine an optimal price",
         })
 
+    # Advisory order-time signal; no sell-through claim without stock snapshots.
+    dish_hours: dict[str, Counter[int]] = defaultdict(Counter)
+    for order in recent:
+        hour = utc(order.placed_at).astimezone(MARKET_TZ).hour
+        for item in items.get(order.id, []):
+            dish_hours[item.dish_id][hour] += item.quantity
+    for dish in dishes.values():
+        if dish.status not in {"approved", "sample"} or dish.portions_available <= 0:
+            continue
+        hourly = dish_hours[dish.id]
+        best_hour = hourly.most_common(1)[0][0] if sum(hourly.values()) >= 5 else None
+        surplus_advice.append({
+            "dish_id": dish.id,
+            "name": dish.name,
+            "available_portions": dish.portions_available,
+            "preview_only": dish.status == "sample",
+            "delivered_portions_14d": recent_qty[dish.id],
+            "suggested_post_hour": best_hour,
+            "advice": "Post available portions before your usual order hour and update stock as portions sell" if best_hour is not None else "Keep your available portions current; more orders are needed to identify a usual order hour",
+        })
+
     today = now.astimezone(MARKET_TZ).date()
+    # Use complete local days, including zero-order days. Today's partial count is excluded.
     daily = Counter(utc(row.placed_at).astimezone(MARKET_TZ).date() for row in recent)
     forecast = []
+    forecast_validation = None
+    forecast_selected = None
     if len(recent) >= 20 and daily and (today - min(daily)).days >= 28:
+        start = min(daily)
+        complete_days = (today - start).days
+        values = [daily[start + timedelta(days=offset)] for offset in range(complete_days)]
+        compared = compare_forecasts(values, horizon=8)
+        forecast_selected = compared["selected"]
+        forecast_validation = compared["validation"]
         for offset in range(1, 8):
             day = today + timedelta(days=offset)
-            # Include zero-order weekdays in the eight-week window.
-            history = [daily[today - timedelta(days=lag)] for lag in range(1, 57) if (today - timedelta(days=lag)).weekday() == day.weekday()]
-            forecast.append({"day": day.isoformat(), "estimated_orders": round(sum(history) / len(history), 1) if history else 0})
+            baseline = compared["weekday"][offset]
+            winter = compared["holt_winters"][offset] if compared["holt_winters"] else None
+            chosen = winter if compared["selected"] == "holt_winters" else baseline
+            forecast.append({"day": day.isoformat(), "estimated_orders": round(chosen, 1),
+                             "weekday_average": round(baseline, 1),
+                             "holt_winters": round(winter, 1) if winter is not None else None})
 
     return {
         "window_days": 90,
@@ -149,8 +191,11 @@ def seller_opportunities(user: CurrentUser, db: Db) -> dict:
         "dormant_regular_count": dormant,
         "estimated_margins": sorted(margins.values(), key=lambda row: row["estimated_gross_margin_pkr"], reverse=True),
         "dish_planning": dish_planning,
+        "surplus_advice": surplus_advice,
         "forecast": forecast,
-        "forecast_method": "Average delivered orders for the same weekday over the previous eight weeks; shown after 20 orders and 28 days of history",
+        "forecast_selected": forecast_selected,
+        "forecast_validation": forecast_validation,
+        "forecast_method": "Daily delivered orders in Pakistan time; Holt-Winters additive weekly seasonality is compared with an eight-week weekday average on the latest 14 complete days. The lower holdout MAE is selected. Sparse histories use the weekday average.",
         "margin_note": "Sales less seller-entered portion cost only; excludes labor, packaging, delivery, and other expenses",
     }
 
@@ -179,10 +224,13 @@ def seller_review_topics(user: CurrentUser, db: Db) -> dict:
         "recent": recent,
         "model": {
             "method": "TF-IDF unigrams and bigrams with five one-vs-rest logistic classifiers",
-            "training_source": "Fictional labeled English reviews bundled with this demo",
+            "training_source": "Fictional labeled English and Roman Urdu reviews bundled with this demo",
             "training_examples": model.training_examples,
             "evaluation_examples": model.evaluation_examples,
             "evaluation": model.evaluation,
+            "roman_training_examples": model.roman_training_examples,
+            "roman_evaluation_examples": model.roman_evaluation_examples,
+            "roman_evaluation": model.roman_evaluation,
             "limit": "Evaluation uses held-out synthetic examples only. Predictions are descriptive and require review before use in safety decisions.",
         },
     }

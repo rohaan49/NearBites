@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from collections import Counter, defaultdict
+import os
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from .database import get_db
 from .models import (
+    Address,
     AdminSetting,
     Dish,
     HygieneReport,
@@ -22,6 +25,7 @@ from .models import (
 )
 from .security import current_user, require_admin
 from .email import notify
+from .delivery import distance_km
 
 
 router = APIRouter()
@@ -207,41 +211,60 @@ def seller_review_insights(user: CurrentUser, db: Db) -> dict:
 
 @router.get("/users/me/recommendations")
 def recommendations(user: CurrentUser, db: Db, limit: int = Query(3, ge=1, le=20)) -> dict:
-    # Rank real sales; add an affinity boost for kitchens the buyer has ordered from.
-    familiar = {
-        vendor_id: count
-        for vendor_id, count in db.execute(
-            select(Order.kitchen_id, func.count(Order.id))
-            .where(Order.buyer_id == user.id, Order.status == "delivered")
-            .group_by(Order.kitchen_id)
-        )
-    }
-    sales = (
-        select(OrderItem.dish_id, func.sum(OrderItem.quantity).label("sold"))
-        .join(Order)
-        .where(Order.status == "delivered")
-        .group_by(OrderItem.dish_id)
-        .subquery()
-    )
-    rows = db.execute(
-        select(Dish, func.coalesce(sales.c.sold, 0))
-        .join(Kitchen, Kitchen.id == Dish.kitchen_id)
-        .outerjoin(sales, sales.c.dish_id == Dish.id)
-        .where(
-            Dish.status == "approved", Dish.portions_available > 0,
-            Kitchen.status == "active", Kitchen.training_verified.is_(True),
-            Kitchen.latitude.is_not(None), Kitchen.longitude.is_not(None),
-        )
-    ).all()
-    ranked = sorted(rows, key=lambda pair: (int(pair[1]) + familiar.get(pair[0].kitchen_id, 0) * 3, pair[0].created_at), reverse=True)[:limit]
-    max_sold = max((int(sold) for _, sold in ranked), default=0)
+    # Item association from delivered buyer histories; availability and delivery radius are hard filters.
+    history = db.execute(select(Order.buyer_id, Order.kitchen_id, OrderItem.dish_id, OrderItem.quantity, Order.placed_at)
+        .join(OrderItem, OrderItem.order_id == Order.id).where(Order.status == "delivered")).all()
+    own = Counter()
+    familiar = Counter()
+    buyers: dict[str, set[str]] = defaultdict(set)
+    recent_sales = Counter()
+    since = datetime.now(timezone.utc) - timedelta(days=90)
+    for buyer_id, kitchen_id, dish_id, quantity, placed_at in history:
+        buyers[buyer_id].add(dish_id)
+        if buyer_id == user.id:
+            own[dish_id] += quantity
+            familiar[kitchen_id] += 1
+        if placed_at.replace(tzinfo=timezone.utc) >= since:
+            recent_sales[dish_id] += quantity
+    related = Counter()
+    if own:
+        for basket in buyers.values():
+            overlap = len(basket & own.keys())
+            if overlap:
+                for dish_id in basket - own.keys():
+                    related[dish_id] += overlap
+    address = db.scalar(select(Address).where(Address.user_id == user.id).order_by(Address.is_default.desc()).limit(1))
+    candidates = db.execute(select(Dish, Kitchen).join(Kitchen, Kitchen.id == Dish.kitchen_id).where(
+        Dish.status == "approved", Dish.portions_available > 0,
+        Kitchen.status == "active", Kitchen.training_verified.is_(True),
+        Kitchen.latitude.is_not(None), Kitchen.longitude.is_not(None),
+    )).all()
+    ranked = []
+    for dish, kitchen in candidates:
+        distance = None
+        if address and address.latitude is not None and address.longitude is not None:
+            distance = distance_km(address.latitude, address.longitude, kitchen.latitude, kitchen.longitude)
+            if distance > float(os.getenv("MAX_DELIVERY_KM", "10")):
+                continue
+        # Association, repeat orders, and recent sales all use observed orders. Stock is a live constraint.
+        score = min(20, related[dish.id] * 4) + min(15, own[dish.id] * 5) + min(10, familiar[kitchen.id] * 2) + min(15, recent_sales[dish.id])
+        if distance is not None:
+            score += max(0, 10 - int(distance))
+        score += min(5, dish.portions_available)
+        reason = ("You have ordered this dish before" if own[dish.id] else
+                  "Buyers with similar orders also chose this" if related[dish.id] else
+                  "From a kitchen you have ordered from" if familiar[kitchen.id] else
+                  "Popular recently and available now" if recent_sales[dish.id] else
+                  "Available now")
+        ranked.append((score, dish, kitchen, reason, distance))
+    ranked.sort(key=lambda row: (row[0], row[1].created_at), reverse=True)
     return {
         "items": [
             {
                 "id": dish.id,
-                "vendor_id": dish.kitchen_id,
-                "vendor_name": db.get(Kitchen, dish.kitchen_id).name,
-                "area": db.get(Kitchen, dish.kitchen_id).area,
+                "vendor_id": kitchen.id,
+                "vendor_name": kitchen.name,
+                "area": kitchen.area,
                 "name": dish.name,
                 "description": dish.description,
                 "price_pkr": dish.price_pkr,
@@ -253,12 +276,14 @@ def recommendations(user: CurrentUser, db: Db, limit: int = Query(3, ge=1, le=20
                 "status": dish.status,
                 "is_sample": False,
                 "is_demo": dish.kitchen.owner.email.endswith("@demo.nearbites.invalid"),
-                "sold": int(sold),
-                "match_score": min(98, 48 + round(30 * int(sold) / max_sold if max_sold else 0) + (20 if familiar.get(dish.kitchen_id) else 0)),
-                "reason": f"You have ordered from {dish.kitchen.name} before" if familiar.get(dish.kitchen_id) else "Popular with buyers on NearBites",
+                "sold": recent_sales[dish.id],
+                "match_score": score,
+                "reason": reason,
+                "distance_km": round(distance, 1) if distance is not None else None,
             }
-            for dish, sold in ranked
-        ]
+            for score, dish, kitchen, reason, distance in ranked[:limit]
+        ],
+        "method": "Delivered-order item associations, buyer history, recent sales, live portions and delivery radius; score is a ranking aid, not a probability",
     }
 
 

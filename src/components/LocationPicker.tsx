@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/language";
 import { useEffect, useRef, useState } from "react";
 
 export type Coordinates = { latitude: number; longitude: number };
@@ -32,6 +33,7 @@ type Props = {
 };
 
 export function LocationPicker({ initial, saving = false, onSave, onCancel }: Props) {
+  const { t } = useLanguage();
   const map = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; center: Coordinates; moved: boolean } | null>(null);
   const [center, setCenter] = useState<Coordinates>(initial ?? ISLAMABAD);
@@ -91,8 +93,8 @@ export function LocationPicker({ initial, saving = false, onSave, onCancel }: Pr
 
   return (
     <div className="mt-3 rounded-xl border border-border bg-background p-3">
-      <p className="text-sm font-semibold">Choose your delivery point</p>
-      <p className="mt-1 text-xs text-muted-foreground">Tap the map to place the pin, or use your current location. Drag to move around.</p>
+      <p className="text-sm font-semibold">{t("Choose your delivery point")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("Tap the map to place the pin, or use your current location. Drag to move around.")}</p>
       <div ref={map} className="relative mt-3 h-80 w-full overflow-hidden rounded-lg bg-[#e5ebe3] cursor-crosshair"
         style={{ touchAction: "none" }}
         onPointerDown={(event) => {
@@ -127,16 +129,16 @@ export function LocationPicker({ initial, saving = false, onSave, onCancel }: Pr
           className="absolute bottom-1 right-1 rounded bg-white/90 px-1 text-[10px] text-slate-700">© OpenStreetMap contributors</a>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={() => setZoom((current) => Math.min(18, current + 1))} className="rounded-lg border border-border px-3 py-1 text-sm" aria-label="Zoom in">+</button>
-        <button type="button" onClick={() => setZoom((current) => Math.max(3, current - 1))} className="rounded-lg border border-border px-3 py-1 text-sm" aria-label="Zoom out">−</button>
-        <button type="button" onClick={useCurrentLocation} className="rounded-lg border border-border px-3 py-1 text-sm">Use my location</button>
+        <button type="button" onClick={() => setZoom((current) => Math.min(18, current + 1))} className="rounded-lg border border-border px-3 py-1 text-sm" aria-label={t("Zoom in")}>+</button>
+        <button type="button" onClick={() => setZoom((current) => Math.max(3, current - 1))} className="rounded-lg border border-border px-3 py-1 text-sm" aria-label={t("Zoom out")}>−</button>
+        <button type="button" onClick={useCurrentLocation} className="rounded-lg border border-border px-3 py-1 text-sm">{t("Use my location")}</button>
       </div>
-      {selected && <p className="mt-2 text-xs text-muted-foreground" role="status">Pin selected: {selected.latitude.toFixed(5)}, {selected.longitude.toFixed(5)}</p>}
-      {error && <p className="mt-2 text-xs text-destructive" role="alert">{error}</p>}
+      {selected && <p className="mt-2 text-xs text-muted-foreground" role="status">{t("Pin selected:")} {selected.latitude.toFixed(5)}, {selected.longitude.toFixed(5)}</p>}
+      {error && <p className="mt-2 text-xs text-destructive" role="alert">{t(error)}</p>}
       <div className="mt-3 flex gap-2">
         <button type="button" onClick={() => selected && onSave(selected)} disabled={!selected || saving}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saving ? "Saving…" : "Use this location"}</button>
-        <button type="button" onClick={onCancel} className="rounded-lg border border-border px-4 py-2 text-sm">Cancel</button>
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saving ? t("Saving…") : t("Use this location")}</button>
+        <button type="button" onClick={onCancel} className="rounded-lg border border-border px-4 py-2 text-sm">{t("Cancel")}</button>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ from .models import Dish, HygieneReport, Kitchen, ModerationEvent, ProofSubmissi
 from .operations import setting
 from .security import require_admin
 from .trust import seller_track_record
+from .application_review import application_readiness
 
 
 router = APIRouter()
@@ -62,7 +63,7 @@ def review_queue(admin: Admin, db: Db, demo: bool = False) -> dict:
 
     items: list[dict] = []
 
-    def add(kind: ReviewKind, target_id: str, kitchen: Kitchen, title: str, created_at: datetime) -> None:
+    def add(kind: ReviewKind, target_id: str, kitchen: Kitchen, title: str, created_at: datetime, application: dict | None = None) -> None:
         hours = max(0, (now - created_at.replace(tzinfo=timezone.utc)).total_seconds() / 3600)
         flags = open_flags.get(kitchen.id, 0)
         reasons: list[str] = []
@@ -100,18 +101,19 @@ def review_queue(admin: Admin, db: Db, demo: bool = False) -> dict:
             "reasons": reasons,
             "reviewer_id": assignment.reviewer_id if assignment else None,
             "reviewer_name": reviewers.get(assignment.reviewer_id) if assignment else None,
+            "application": application,
         })
 
     for kitchen in scoped.values():
         if kitchen.status == "pending":
-            add("kitchen", kitchen.id, kitchen, kitchen.name, kitchen.created_at)
+            add("kitchen", kitchen.id, kitchen, kitchen.name, kitchen.created_at, application_readiness(db, kitchen))
     for listing in listings:
         if listing.kitchen_id in scoped:
             add("listing", listing.id, scoped[listing.kitchen_id], listing.name, listing.review_requested_at or listing.created_at)
     kitchen_by_owner = {row.owner_id: row for row in scoped.values()}
     for proof in proofs:
         kitchen = kitchen_by_owner.get(proof.user_id)
-        if kitchen and proof.module_id != "allergens":
+        if kitchen and kitchen.status != "pending" and proof.module_id != "allergens":
             add("proof", proof.id, kitchen, proof.module_id.replace("-", " ").title(), proof.submitted_at)
     for report in reports:
         kitchen = scoped.get(report.kitchen_id)

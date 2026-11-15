@@ -3,6 +3,7 @@
 ## Implemented now
 
 The admin workspace combines pending kitchens, seller proofs, dish listings, and buyer hygiene reports into one queue. Each item shows its age, the reason for its priority, and an assigned admin. Hygiene reports come first; repeated open reports and missed review targets raise priority. Assignments and decisions are recorded. Overdue items stay in review and become more visible.
+Pending kitchen and training proof work is now one application queue item per kitchen. The application shows email and location readiness plus every active lesson. The admin opens that case to inspect the latest proof and approve or reject each lesson's evidence. Proofs from active kitchens remain separate retraining cases. Final kitchen approval is blocked by the API until email, location, and all active lessons are complete; the reviewer's decision remains explicit.
 New listings must provide a photo and a meaningful description; duplicate active or pending dish names in the same kitchen are rejected before they reach a reviewer. ChefCam already asks for a new frame when either required object is missing. These checks reduce avoidable queue entries without making a safety decision.
 When a seller edits a listing and sends it back for review, a new review-request timestamp starts that case's waiting clock. The original listing creation date remains available separately.
 

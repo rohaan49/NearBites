@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/language";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -23,6 +24,7 @@ const input =
   "w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-primary transition";
 
 function LoginPage() {
+  const { t } = useLanguage();
   const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
@@ -47,27 +49,27 @@ function LoginPage() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Log in to pick up where you left off.">
+    <AuthLayout title={t("Welcome back")} subtitle={t("Log in to pick up where you left off.")}>
       <form onSubmit={submit} className="space-y-3">
-        <Field label="Email" error={errors.email}>
+        <Field label={t("Email")} error={errors.email}>
           <input className={input} value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="you@example.com" />
         </Field>
-        <Field label="Password" error={errors.password}>
+        <Field label={t("Password")} error={errors.password}>
           <input type="password" className={input} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} placeholder="••••••••" />
         </Field>
-        {errors.form && <p className="text-xs font-medium text-destructive">{errors.form}</p>}
-        <button className="w-full rounded-xl bg-gradient-spice text-primary-foreground py-3 font-display font-bold shadow-warm">Log in</button>
+        {errors.form && <p className="text-xs font-medium text-destructive">{t(errors.form)}</p>}
+        <button className="w-full rounded-xl bg-gradient-spice text-primary-foreground py-3 font-display font-bold shadow-warm">{t("Log in")}</button>
       </form>
 
       <div className="mt-4 text-center">
         <Link to="/forgot-password" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-          Forgot password?
+          {t("Forgot password?")}
         </Link>
       </div>
       <p className="mt-4 text-center text-sm text-muted-foreground">
-        New to near bites?{" "}
+        {t("New to near bites?")}{" "}
         <Link to="/signup" className="font-semibold text-primary">
-          Create an account
+          {t("Create an account")}
         </Link>
       </p>
     </AuthLayout>

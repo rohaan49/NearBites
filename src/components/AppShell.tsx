@@ -1,10 +1,12 @@
+import { LanguageSwitch, useLanguage } from "@/lib/language";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Home, Search, ShoppingBag, ClipboardList, User, BarChart3, BookOpen } from "lucide-react";
+import { Home, Search, ShoppingBag, ClipboardList, User, BarChart3, BookOpen, CalendarDays } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import type { ReactNode } from "react";
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const { t } = useLanguage();
   const path = useRouterState({ select: (r) => r.location.pathname });
   const { count, addPulse, role } = useCart();
   const { user, logout, switchWorkspace } = useAuth();
@@ -14,12 +16,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const buyerNav = [
     { to: "/", label: "Home", icon: Home },
     { to: "/search", label: "Search", icon: Search },
+    { to: "/meal-plans", label: "Plans", icon: CalendarDays },
     { to: "/cart", label: "Cart", icon: ShoppingBag, badge: count },
     { to: "/orders", label: "Orders", icon: ClipboardList },
     { to: "/account", label: "Me", icon: User },
   ] as const;
   const sellerNav = [
     { to: "/dashboard", label: "Kitchen", icon: BarChart3 },
+    { to: "/seller-meal-plans", label: "Plans", icon: CalendarDays },
     { to: "/insights", label: "Insights", icon: BarChart3 },
     { to: "/seller-training", label: "Training", icon: BookOpen },
     { to: "/account", label: "Me", icon: User },
@@ -29,8 +33,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 backdrop-blur-xl bg-background/70 border-b border-border/60">
-        <div className="mx-auto max-w-2xl md:max-w-5xl px-4 h-14 flex items-center justify-between gap-4">
-          <Link to="/" className="flex items-center gap-2">
+        <div className="mx-auto max-w-2xl md:max-w-5xl px-4 min-h-14 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-1.5">
+          <Link to="/" dir="ltr" className="flex items-center gap-2">
             <span className="h-8 w-8 rounded-full bg-gradient-spice grid place-items-center text-primary-foreground font-display font-bold shadow-warm">
               n
             </span>
@@ -39,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex order-last w-full flex-wrap justify-center gap-1 xl:order-none xl:w-auto xl:flex-1">
             {nav.map((n) => {
               const active = n.to === "/" ? path === "/" : path.startsWith(n.to);
               const Icon = n.icon;
@@ -54,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   }`}
                 >
                   <Icon className="h-4 w-4" />
-                  {n.label}
+                  {t(n.label)}
                   {"badge" in n && n.badge ? (
                     <span key={addPulse} className={`h-5 min-w-5 px-1 rounded-full bg-spice text-white text-[10px] font-bold grid place-items-center ${addPulse ? "cart-count-pop" : ""}`}>
                       {n.badge}
@@ -65,6 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
 
+          <div className="flex flex-wrap items-center justify-end gap-2"><LanguageSwitch />
           {user ? (
             <div className="flex items-center gap-2">
               {user.role !== "admin" && <button type="button" onClick={async () => {
@@ -75,9 +80,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 } catch {
                   navigate({ to: "/choose-mode" });
                 }
-              }} className="text-xs px-3 py-1.5 rounded-full border border-border bg-card font-semibold text-primary">{sellerMode ? "Switch to buying" : "Switch to selling"}</button>}
+              }} className="text-xs px-3 py-1.5 rounded-full border border-border bg-card font-semibold text-primary">{sellerMode ? t("Switch to buying") : t("Switch to selling")}</button>}
               <Link to="/account" className="hidden sm:inline text-xs px-3 py-1.5 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition">
-                {user.name.split(" ")[0]} · {user.role === "admin" ? "Admin" : sellerMode ? "Seller" : "Buyer"}
+                {user.name.split(" ")[0]} · {user.role === "admin" ? t("Admin") : sellerMode ? t("Seller") : t("Buyer")}
               </Link>
               <button
                 onClick={async () => {
@@ -86,19 +91,19 @@ export function AppShell({ children }: { children: ReactNode }) {
                 }}
                 className="text-xs px-3 py-1.5 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition"
               >
-                Log out
+                {t("Log out")}
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <Link to="/login" className="text-xs px-3 py-1.5 rounded-full border border-border bg-card text-muted-foreground hover:text-foreground transition">
-                Log in
+                {t("Log in")}
               </Link>
               <Link to="/signup" className="text-xs px-3 py-1.5 rounded-full bg-gradient-spice text-primary-foreground font-semibold shadow-warm">
-                Sign up
+                {t("Sign up")}
               </Link>
             </div>
-          )}
+          )}</div>
         </div>
       </header>
 
@@ -114,14 +119,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={n.to}
                 to={n.to}
-                className={`relative flex flex-col items-center justify-center px-3 py-1.5 rounded-full transition ${
+                className={`relative flex min-w-0 flex-1 flex-col items-center justify-center px-1 py-1.5 rounded-full transition ${
                   active ? "bg-gradient-spice text-primary-foreground shadow-warm" : "text-muted-foreground"
                 }`}
               >
                 <Icon className="h-5 w-5" />
                 <span className="text-[10px] mt-0.5 font-medium">{n.label}</span>
                 {"badge" in n && n.badge ? (
-                  <span key={addPulse} className={`absolute -top-2 -right-2 grid h-6 min-w-6 place-items-center rounded-full border-2 border-card bg-primary px-1 text-[11px] font-extrabold text-primary-foreground shadow-[0_3px_12px_rgba(125,48,22,.38)] ${addPulse ? "cart-count-pop" : ""}`}>
+                  <span key={addPulse} className={`absolute -top-2 -end-2 grid h-6 min-w-6 place-items-center rounded-full border-2 border-card bg-primary px-1 text-[11px] font-extrabold text-primary-foreground shadow-[0_3px_12px_rgba(125,48,22,.38)] ${addPulse ? "cart-count-pop" : ""}`}>
                     {n.badge}
                   </span>
                 ) : null}

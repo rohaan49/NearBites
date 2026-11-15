@@ -35,16 +35,17 @@ YOLO predicts boxes and confidence values for visible objects. A box confidence 
 
 ### Review topic demonstration
 
-Seller Insights now includes a five-topic text classifier for taste, packaging, delivery, portion/value, and hygiene mentions. It uses TF-IDF word and word-pair features with five independent logistic classifiers, so one review can receive several topics. The bundled corpus contains 131 fictional labeled training examples and 30 separate fictional evaluation examples. The seller view shows per-topic precision, recall, and F1 from that synthetic holdout. Predictions on actual stored reviews are descriptive only; a hygiene topic is not a verified safety incident and does not create an admin report.
+Seller Insights includes a five-topic text classifier for taste, packaging, delivery, portion/value, and hygiene mentions. It uses TF-IDF word and word-pair features with five independent logistic classifiers, so one review can receive several topics. The bundled corpus now contains 219 fictional labeled training examples, including 88 Roman Urdu examples, and 54 separate fictional evaluation examples, including 24 Roman Urdu examples. The seller view shows per-topic precision, recall, and F1 from the combined and Roman Urdu synthetic holdouts. Predictions on stored reviews are descriptive only; a hygiene topic is not a verified safety incident and does not create an admin report.
 
-This demonstrates a reproducible text classification method, not validated performance on real customer language. The examples are short English phrases. Real reviews, especially Urdu, Roman Urdu, spelling variation, sarcasm, and mixed opinions, need separately labeled evaluation before the model is relied on operationally.
+This demonstrates a reproducible text classification method, not validated performance on real customer language. The examples include short English and Roman Urdu phrases. Real reviews, especially native-script Urdu, different Roman Urdu spellings, sarcasm, and mixed opinions, need separately labeled evaluation before the model is relied on operationally.
 
 | View | Method | Data limit |
 |---|---|---|
 | Seller busy times | Count delivered orders by Pakistan local weekday/hour | Sparse history yields weak patterns |
 | Seller best dishes and dish pairs | Sum delivered item quantities; count distinct dish pairs in the same delivered order | Pairs display after at least two orders |
 | Seller retention | Follow first delivered-order cohorts and count second/third orders within 30 days | Only cohorts old enough for a full 30-day window enter the denominator |
-| Seller planning estimate | Average same-weekday delivered orders over eight prior weeks | Shown after 20 delivered orders and 28 days of history; it is a simple baseline |
+| Seller planning estimate | Holt-Winters additive level, trend and seven-day seasonality compared with the eight-week same-weekday average | After at least 56 complete days and 20 delivered orders, compare both on the most recent 14 complete days using MAE; select the lower-error method. Sparse histories use the weekday average. Demo holdout error does not validate real demand. |
+| Buyer kitchen rating | (sum of kitchen ratings + 5 × cohort-wide mean) / (review count + 5) | Demo and live reviews have separate priors. Unreviewed kitchens show New. The five-review prior is a transparent prototype choice, not calibrated evidence of trust. |
 | Seller margin | Item sale price minus seller-entered portion cost, multiplied by quantity | Excludes labor, packaging, fees, and other expenses |
 | Buyer reorder | Find dishes ordered on the current weekday on at least three distinct days in 12 weeks | No prompt when there is no repeat pattern or the dish is unavailable |
 | Vendor cancellation history | Cancelled/rejected orders divided by finished orders over 90 days | Hidden below five finished orders; no on-time claim without a promised delivery time |
@@ -52,6 +53,8 @@ This demonstrates a reproducible text classification method, not validated perfo
 | Admin review queue | Safety category, open reports, and elapsed time determine transparent priority | Priority is a workflow rule, not a validated safety probability |
 
 Demo accounts and activity are labeled separately from live records in admin. Present seeded activity as fictional demonstration data.
+
+The buyer feed now uses delivered-order item associations, the buyer's own dish and kitchen history, recent demand, live portion counts, and the buyer's default-address delivery radius. Its ranking number is an internal ordering aid, not a calibrated probability. Seller insights show currently available portions and the most common local order hour for dishes with at least five delivered portions of history. The seller chooses when and how much to list; without historical stock snapshots this does not estimate sell-through or food waste avoided. Fictional order history demonstrates the flow and does not validate predictive performance.
 
 ## Comparison with an incumbent
 

@@ -10,16 +10,18 @@ import {
 import appCss from "../styles.css?url";
 import { CartProvider } from "@/lib/cart";
 import { AuthProvider } from "@/lib/auth";
+import { LanguageProvider, useLanguage } from "@/lib/language";
 
 function NotFoundComponent() {
+  const { t } = useLanguage();
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
         <h1 className="font-display text-7xl font-bold text-primary">404</h1>
-        <h2 className="mt-4 font-display text-xl font-semibold">Yeh page tou nahi mila</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Looks like this dish is off the menu.</p>
+        <h2 className="mt-4 font-display text-xl font-semibold">{t("Yeh page tou nahi mila")}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t("Looks like this dish is off the menu.")}</p>
         <Link to="/" className="mt-6 inline-flex rounded-full bg-gradient-spice text-primary-foreground px-5 py-2.5 text-sm font-semibold shadow-warm">
-          Back to home
+          {t("Back to home")}
         </Link>
       </div>
     </div>
@@ -27,17 +29,18 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+  const { t } = useLanguage();
   const router = useRouter();
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="max-w-md text-center">
-        <h1 className="font-display text-xl font-semibold">Something burnt in the kitchen</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
+        <h1 className="font-display text-xl font-semibold">{t("Something burnt in the kitchen")}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t(error.message)}</p>
         <button
           onClick={() => { router.invalidate(); reset(); }}
           className="mt-6 rounded-full bg-gradient-spice text-primary-foreground px-5 py-2.5 text-sm font-semibold shadow-warm"
         >
-          Try again
+          {t("Try again")}
         </button>
       </div>
     </div>
@@ -63,6 +66,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap" },
     ],
   }),
   shellComponent: RootShell,
@@ -75,7 +79,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
+      <body><LanguageProvider>{children}</LanguageProvider><Scripts /></body>
     </html>
   );
 }

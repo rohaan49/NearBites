@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/language";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -20,6 +21,7 @@ type Summary = {
 type TrustRecord = { tier: string; window_days?: number; delivered_orders?: number; review_count?: number; cancellation_rate?: number | null; open_or_resolved_hygiene_reports?: number; effect?: string };
 
 function Dashboard() {
+  const { t } = useLanguage();
   const { user, refreshUser } = useAuth();
   const [kitchen, setKitchen] = useState<Vendor | null>(null);
   const [listings, setListings] = useState<Dish[]>([]);
@@ -142,18 +144,18 @@ function Dashboard() {
   return (
     <AppShell>
       <div className="px-4 pt-5">
-        <h1 className="font-display text-2xl font-bold">Kitchen dashboard</h1>
-        {user?.email.endsWith("@demo.nearbites.invalid") && <p className="mt-3 rounded-xl border border-spice/30 bg-spice/10 p-3 text-sm">Fictional demo kitchen and order history. Sample dishes cannot be purchased.</p>}
-        {!user && <p className="mt-5 text-sm">Please <Link to="/login" className="text-primary underline">log in</Link> first.</p>}
-        {user?.role === "admin" && <p className="mt-5 text-sm">Open your <Link to="/admin" className="text-primary underline">admin workspace</Link>.</p>}
-        {user && !user.email_verified && <p className="mt-4 text-sm">Please <Link to="/verify-email" className="text-primary underline">verify your email</Link> before selling.</p>}
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-        {message && <p className="mt-3 text-sm text-mehndi">{message}</p>}
+        <h1 className="font-display text-2xl font-bold">{t("Kitchen dashboard")}</h1>
+        {user?.email.endsWith("@demo.nearbites.invalid") && <p className="mt-3 rounded-xl border border-spice/30 bg-spice/10 p-3 text-sm">{t("Fictional demo kitchen and order history. Sample dishes cannot be purchased.")}</p>}
+        {!user && <p className="mt-5 text-sm">{t("Please")} <Link to="/login" className="text-primary underline">{t("log in")}</Link> {t("first.")}</p>}
+        {user?.role === "admin" && <p className="mt-5 text-sm">{t("Open your")} <Link to="/admin" className="text-primary underline">{t("admin workspace")}</Link>.</p>}
+        {user && !user.email_verified && <p className="mt-4 text-sm">{t("Please")} <Link to="/verify-email" className="text-primary underline">{t("verify your email")}</Link> {t("before selling.")}</p>}
+        {error && <p className="mt-3 text-sm text-destructive">{t(error)}</p>}
+        {message && <p className="mt-3 text-sm text-mehndi">{t(message)}</p>}
         {user && user.role !== "admin" && user.email_verified && !kitchen && (
           <form onSubmit={createKitchen} className="mt-5 space-y-3 rounded-2xl border border-border bg-card p-5">
-            <h2 className="font-display font-bold">Create your kitchen</h2>
+            <h2 className="font-display font-bold">{t("Create your kitchen")}</h2>
             {(["name", "chef", "area", "bio"] as const).map((key) => (
-              <input key={key} required={key !== "bio"} placeholder={key === "name" ? "Kitchen name" : key === "chef" ? "Chef name" : key === "area" ? "Area" : "About your kitchen"}
+              <input key={key} required={key !== "bio"} placeholder={key === "name" ? t("Kitchen name") : key === "chef" ? t("Chef name") : key === "area" ? t("Area") : t("About your kitchen")}
                 value={kitchenForm[key]} onChange={(event) => setKitchenForm((current) => ({ ...current, [key]: event.target.value }))}
                 className="block w-full rounded-xl border border-border bg-background px-3 py-2 text-sm" />
             ))}
@@ -161,17 +163,17 @@ function Dashboard() {
               (position) => setKitchenForm((current) => ({ ...current, latitude: position.coords.latitude, longitude: position.coords.longitude })),
               () => setError("Location access was denied. Add the area now and set coordinates later."),
             )} className="rounded-xl border border-border px-4 py-2 text-sm">
-              {kitchenForm.latitude === null ? "Add kitchen location" : "Kitchen location added"}
+              {kitchenForm.latitude === null ? t("Add kitchen location") : t("Kitchen location added")}
             </button>
-            <button disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Create kitchen</button>
+            <button disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{t("Create kitchen")}</button>
           </form>
         )}
         {kitchen && (
           <>
             <div className="mt-4 rounded-3xl bg-gradient-spice p-5 text-primary-foreground">
               <div className="font-display text-xl font-bold">{kitchen.name}</div>
-              <div className="text-sm">{kitchen.area} · {kitchen.status.replaceAll("_", " ")}</div>
-              <div className="mt-2 text-xs">{kitchen.training_verified ? "Training verified" : "Training or proof review pending"}</div>
+              <div className="text-sm">{kitchen.area} · {t(kitchen.status.replaceAll("_", " "))}</div>
+              <div className="mt-2 text-xs">{kitchen.training_verified ? t("Training verified") : t("Training or proof review pending")}</div>
               {!kitchen.location_set && (
                 <button onClick={() => navigator.geolocation.getCurrentPosition(
                   async (position) => {
@@ -183,11 +185,11 @@ function Dashboard() {
                     }
                   },
                   () => setError("Location access is required for delivery. Enable it and try again."),
-                )} className="mt-3 rounded-xl bg-white/20 px-3 py-2 text-xs font-semibold">Add map location for delivery</button>
+                )} className="mt-3 rounded-xl bg-white/20 px-3 py-2 text-xs font-semibold">{t("Add map location for delivery")}</button>
               )}
             </div>
-            {trust && <div className="mt-4 rounded-2xl border border-border bg-card p-4"><p className="text-sm font-bold capitalize">Seller track record: {trust.tier}</p><p className="mt-1 text-xs text-muted-foreground">Last {trust.window_days ?? 90} days · {trust.delivered_orders ?? 0} delivered orders · {trust.review_count ?? 0} reviews · {trust.open_or_resolved_hygiene_reports ?? 0} open or resolved hygiene reports. {trust.effect}</p></div>}
-            {!kitchen.training_verified && <Link to="/seller-training" className="mt-4 inline-block rounded-xl bg-secondary px-4 py-2 text-sm font-semibold">Open seller training →</Link>}
+            {trust && <div className="mt-4 rounded-2xl border border-border bg-card p-4"><p className="text-sm font-bold capitalize">{t("Seller track record:")} {t(trust.tier)}</p><p className="mt-1 text-xs text-muted-foreground">{t("Last")} {trust.window_days ?? 90} {t("days ·")} {trust.delivered_orders ?? 0} {t("delivered orders ·")} {trust.review_count ?? 0} {t("reviews ·")} {trust.open_or_resolved_hygiene_reports ?? 0} {t("open or resolved hygiene reports.")} {t(trust.effect ?? "")}</p></div>}
+            {!kitchen.training_verified && <Link to="/seller-training" className="mt-4 inline-block rounded-xl bg-secondary px-4 py-2 text-sm font-semibold">{t("Open seller training →")}</Link>}
             <div className="mt-5 grid grid-cols-2 gap-3">
               {[
                 ["Orders this week", summary?.orders ?? 0],
@@ -197,85 +199,85 @@ function Dashboard() {
               ].map(([label, value]) => (
                 <div key={String(label)} className="rounded-2xl border border-border bg-card p-4">
                   <div className="font-display text-xl font-bold">{value}</div>
-                  <div className="text-xs text-muted-foreground">{label}</div>
+                  <div className="text-xs text-muted-foreground">{t(String(label))}</div>
                 </div>
               ))}
             </div>
-            <Link to="/insights" className="mt-4 inline-block text-sm font-semibold text-primary">View real order insights →</Link>
-            {summary && summary.top_dishes.length > 0 && <section className="mt-5 rounded-2xl border border-border bg-card p-4"><h2 className="font-display font-bold">Best-selling dishes this week</h2><div className="mt-2 space-y-2">{summary.top_dishes.map((dish) => <div key={dish.dish_id} className="flex justify-between text-sm"><span>{dish.name}</span><strong>{dish.quantity} portions</strong></div>)}</div></section>}
+            <Link to="/insights" className="mt-4 inline-block text-sm font-semibold text-primary">{t("View real order insights →")}</Link>
+            {summary && summary.top_dishes.length > 0 && <section className="mt-5 rounded-2xl border border-border bg-card p-4"><h2 className="font-display font-bold">{t("Best-selling dishes this week")}</h2><div className="mt-2 space-y-2">{summary.top_dishes.map((dish) => <div key={dish.dish_id} className="flex justify-between text-sm"><span>{dish.name}</span><strong>{dish.quantity} {t("portions")}</strong></div>)}</div></section>}
             <section className="mt-6">
-              <h2 className="font-display text-lg font-bold">Incoming orders</h2>
-              {orders.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No orders yet.</p>}
+              <h2 className="font-display text-lg font-bold">{t("Incoming orders")}</h2>
+              {orders.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{t("No orders yet.")}</p>}
               <div className="mt-3 space-y-3">
                 {orders.map((order) => (
                   <div key={order.id} className="rounded-2xl border border-border bg-card p-4">
-                    <div className="flex justify-between text-sm font-bold"><span>#{order.id.slice(0, 8)}</span><span className="capitalize">{order.status.replaceAll("_", " ")}</span></div>
+                    <div className="flex justify-between text-sm font-bold"><span>#{order.id.slice(0, 8)}</span><span className="capitalize">{t(order.status.replaceAll("_", " "))}</span></div>
                     <p className="mt-2 text-sm">{order.items.map((item) => item.quantity + "× " + item.name).join(", ")}</p>
-                    <p className="mt-1 text-sm">Rs {order.total_pkr} · Cash on delivery</p>
+                    <p className="mt-1 text-sm">{t("Rs")} {order.total_pkr} {t("· Cash on delivery")}</p>
                     <div className="mt-3 flex gap-2">
                       {order.status === "placed" && (
                         <>
-                          <button onClick={() => advance(order, "accepted")} className="rounded-xl bg-mehndi px-3 py-2 text-xs font-semibold text-white">Accept</button>
-                          <button onClick={() => advance(order, "rejected")} className="rounded-xl bg-destructive px-3 py-2 text-xs font-semibold text-white">Reject</button>
+                          <button onClick={() => advance(order, "accepted")} className="rounded-xl bg-mehndi px-3 py-2 text-xs font-semibold text-white">{t("Accept")}</button>
+                          <button onClick={() => advance(order, "rejected")} className="rounded-xl bg-destructive px-3 py-2 text-xs font-semibold text-white">{t("Reject")}</button>
                         </>
                       )}
-                      {order.status === "accepted" && <button onClick={() => advance(order, "cooking")} className="rounded-xl bg-gradient-spice px-3 py-2 text-xs font-semibold text-white">Start cooking</button>}
-                      {order.status === "cooking" && <button onClick={() => advance(order, "ready")} className="rounded-xl bg-gradient-spice px-3 py-2 text-xs font-semibold text-white">Mark ready</button>}
+                      {order.status === "accepted" && <button onClick={() => advance(order, "cooking")} className="rounded-xl bg-gradient-spice px-3 py-2 text-xs font-semibold text-white">{t("Start cooking")}</button>}
+                      {order.status === "cooking" && <button onClick={() => advance(order, "ready")} className="rounded-xl bg-gradient-spice px-3 py-2 text-xs font-semibold text-white">{t("Mark ready")}</button>}
                     </div>
                   </div>
                 ))}
               </div>
             </section>
             <section className="mt-6">
-              <h2 className="font-display text-lg font-bold">Your listings</h2>
-              {listings.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No listings yet.</p>}
+              <h2 className="font-display text-lg font-bold">{t("Your listings")}</h2>
+              {listings.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{t("No listings yet.")}</p>}
               <div className="mt-3 space-y-2">
                 {listings.map((dish) => (
                   <div key={dish.id} className="rounded-xl border border-border bg-card p-3 text-sm">
                     <div className="flex justify-between gap-3">
-                      <span className="font-semibold">{dish.name} · Rs {dish.price_pkr}</span>
-                      <span className="capitalize text-muted-foreground">{dish.status.replaceAll("_", " ")}</span>
+                      <span className="font-semibold">{dish.name} {t("· Rs")} {dish.price_pkr}</span>
+                      <span className="capitalize text-muted-foreground">{t(dish.status.replaceAll("_", " "))}</span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <label className="text-xs">Portions
+                      <label className="text-xs">{t("Portions")}
                         <input type="number" min="0" value={stockDraft[dish.id] ?? dish.portions_available}
                           onChange={(event) => setStockDraft((current) => ({ ...current, [dish.id]: event.target.value }))}
-                          className="ml-2 w-20 rounded-lg border border-border bg-background px-2 py-1" />
+                          className="ms-2 w-20 rounded-lg border border-border bg-background px-2 py-1" />
                       </label>
-                      <button onClick={() => saveAvailability(dish, dish.status === "paused")} className="rounded-lg bg-secondary px-2 py-1 text-xs">Save stock</button>
+                      <button onClick={() => saveAvailability(dish, dish.status === "paused")} className="rounded-lg bg-secondary px-2 py-1 text-xs">{t("Save stock")}</button>
                       {["approved", "paused"].includes(dish.status) && (
                         <button onClick={() => saveAvailability(dish, dish.status === "approved")} className="rounded-lg bg-secondary px-2 py-1 text-xs">
-                          {dish.status === "approved" ? "Pause" : "Resume"}
+                          {dish.status === "approved" ? t("Pause") : t("Resume")}
                         </button>
                       )}
                     </div>
-                    <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-xs">Your cost per portion (optional, private)
-                      <input type="number" min="0" value={costDraft[dish.id] ?? (dish.cost_per_portion_pkr == null ? "" : String(dish.cost_per_portion_pkr))} onChange={(event) => setCostDraft((current) => ({ ...current, [dish.id]: event.target.value }))} placeholder="Rs" className="ml-2 w-24 rounded-lg border border-border bg-background px-2 py-1" />
-                    </label><button type="button" onClick={() => void saveCost(dish)} className="rounded-lg bg-secondary px-2 py-1 text-xs">Save cost</button></div>
+                    <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-xs">{t("Your cost per portion (optional, private)")}
+                      <input type="number" min="0" value={costDraft[dish.id] ?? (dish.cost_per_portion_pkr == null ? "" : String(dish.cost_per_portion_pkr))} onChange={(event) => setCostDraft((current) => ({ ...current, [dish.id]: event.target.value }))} placeholder={t("Rs")} className="ms-2 w-24 rounded-lg border border-border bg-background px-2 py-1" />
+                    </label><button type="button" onClick={() => void saveCost(dish)} className="rounded-lg bg-secondary px-2 py-1 text-xs">{t("Save cost")}</button></div>
                   </div>
                 ))}
               </div>
             </section>
             {!kitchen.training_verified || kitchen.status !== "active" ? (
               <div className="mt-6 rounded-2xl border border-border bg-card p-5">
-                <h2 className="font-display font-bold">Add a dish</h2>
-                <p className="mt-2 text-sm text-muted-foreground">Finish seller training and get your kitchen approved to submit a listing for review.</p>
-                <Link to="/seller-training" className="mt-3 inline-block text-sm font-semibold text-primary underline">View training progress</Link>
+                <h2 className="font-display font-bold">{t("Add a dish")}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">{t("Finish seller training and get your kitchen approved to submit a listing for review.")}</p>
+                <Link to="/seller-training" className="mt-3 inline-block text-sm font-semibold text-primary underline">{t("View training progress")}</Link>
               </div>
             ) : (
               <form onSubmit={createListing} className="mt-6 space-y-3 rounded-2xl border border-border bg-card p-5">
-                <h2 className="font-display font-bold">Add a dish</h2>
-                <input required placeholder="Dish name" value={listingForm.name} onChange={(event) => setListingForm((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
-                <textarea required minLength={10} placeholder="Ingredients, allergens, and description" value={listingForm.description} onChange={(event) => setListingForm((current) => ({ ...current, description: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
+                <h2 className="font-display font-bold">{t("Add a dish")}</h2>
+                <input required placeholder={t("Dish name")} value={listingForm.name} onChange={(event) => setListingForm((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
+                <textarea required minLength={10} placeholder={t("Ingredients, allergens, and description")} value={listingForm.description} onChange={(event) => setListingForm((current) => ({ ...current, description: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
                 <div className="grid grid-cols-2 gap-2">
-                  <input required type="number" min="1" placeholder="Price in PKR" value={listingForm.price_pkr} onChange={(event) => setListingForm((current) => ({ ...current, price_pkr: event.target.value }))} className="rounded-xl border border-border bg-background p-3 text-sm" />
-                  <input required type="number" min="0" placeholder="Portions" value={listingForm.portions_available} onChange={(event) => setListingForm((current) => ({ ...current, portions_available: event.target.value }))} className="rounded-xl border border-border bg-background p-3 text-sm" />
+                  <input required type="number" min="1" placeholder={t("Price in PKR")} value={listingForm.price_pkr} onChange={(event) => setListingForm((current) => ({ ...current, price_pkr: event.target.value }))} className="rounded-xl border border-border bg-background p-3 text-sm" />
+                  <input required type="number" min="0" placeholder={t("Portions")} value={listingForm.portions_available} onChange={(event) => setListingForm((current) => ({ ...current, portions_available: event.target.value }))} className="rounded-xl border border-border bg-background p-3 text-sm" />
                 </div>
                 <select value={listingForm.portion_size} onChange={(event) => setListingForm((current) => ({ ...current, portion_size: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm">
-                  <option value="small">Small</option><option value="regular">Regular</option><option value="large">Large</option>
+                  <option value="small">{t("Small")}</option><option value="regular">{t("Regular")}</option><option value="large">{t("Large")}</option>
                 </select>
                 <DishPhotoPicker photo={photo} onChange={setPhoto} />
-                <button disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Submit for review</button>
+                <button disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{t("Submit for review")}</button>
               </form>
             )}
           </>

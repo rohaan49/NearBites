@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/language";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ChefHat, ShoppingBag } from "lucide-react";
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/choose-mode")({
 });
 
 function ChooseModePage() {
+  const { t } = useLanguage();
   const { user, hydrated, switchWorkspace } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -35,20 +37,20 @@ function ChooseModePage() {
   };
 
   return (
-    <AuthLayout title="What would you like to do?" subtitle="Use either workspace with the same email and password.">
-      {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
+    <AuthLayout title={t("What would you like to do?")} subtitle={t("Use either workspace with the same email and password.")}>
+      {error && <p className="mb-3 text-sm text-destructive">{t(error)}</p>}
       <div className="grid gap-3">
-        <button disabled={busy} onClick={() => void choose("buyer")} className="flex w-full items-center gap-4 rounded-2xl border border-border bg-background p-4 text-left hover:border-primary disabled:opacity-50">
+        <button disabled={busy} onClick={() => void choose("buyer")} className="flex w-full items-center gap-4 rounded-2xl border border-border bg-background p-4 text-start hover:border-primary disabled:opacity-50">
           <ShoppingBag className="h-7 w-7 text-primary" />
-          <span><strong className="block">Continue as buyer</strong><span className="text-sm text-muted-foreground">Browse kitchens, order meals, and see your orders.</span></span>
+          <span><strong className="block">{t("Continue as buyer")}</strong><span className="text-sm text-muted-foreground">{t("Browse kitchens, order meals, and see your orders.")}</span></span>
         </button>
-        <button disabled={busy} onClick={() => void choose("seller")} className="flex w-full items-center gap-4 rounded-2xl border border-border bg-background p-4 text-left hover:border-primary disabled:opacity-50">
+        <button disabled={busy} onClick={() => void choose("seller")} className="flex w-full items-center gap-4 rounded-2xl border border-border bg-background p-4 text-start hover:border-primary disabled:opacity-50">
           <ChefHat className="h-7 w-7 text-primary" />
-          <span><strong className="block">Continue as seller</strong><span className="text-sm text-muted-foreground">Set up a kitchen or manage your existing one.</span></span>
+          <span><strong className="block">{t("Continue as seller")}</strong><span className="text-sm text-muted-foreground">{t("Set up a kitchen or manage your existing one.")}</span></span>
         </button>
       </div>
-      <p className="mt-4 text-center text-xs text-muted-foreground">You can switch later from your account. Selling requires training and approval.</p>
-      <Link to="/account" className="mt-3 block text-center text-sm font-semibold text-primary">Account settings</Link>
+      <p className="mt-4 text-center text-xs text-muted-foreground">{t("You can switch later from your account. Selling requires training and approval.")}</p>
+      <Link to="/account" className="mt-3 block text-center text-sm font-semibold text-primary">{t("Account settings")}</Link>
     </AuthLayout>
   );
 }

@@ -102,6 +102,17 @@
   --shadow-soft: 0 4px 20px -8px oklch(0.4 0.1 50 / 0.2);
 }
 
+:root[lang="ur"] {
+  --font-sans: "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+  --font-display: "Noto Sans Arabic", "Segoe UI", Tahoma, sans-serif;
+}
+
+input[type="email"], input[type="tel"], input[type="url"], input[type="password"],
+input[type="date"], input[type="time"], input[type="number"] {
+  direction: ltr;
+  text-align: start;
+}
+
 .dark {
   --background: oklch(0.18 0.03 35);
   --foreground: oklch(0.96 0.02 75);
@@ -136,6 +147,7 @@
     background-attachment: fixed;
   }
   h1, h2, h3, .font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+  [lang="ur"] :is(h1, h2, h3, .font-display) { letter-spacing: normal; line-height: 1.55; }
 }
 
 @layer utilities {

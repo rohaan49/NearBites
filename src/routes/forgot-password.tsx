@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/language";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { MailCheck } from "lucide-react";
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/forgot-password")({
 });
 
 function ForgotPasswordPage() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [code, setCode] = useState("");
@@ -30,23 +32,23 @@ function ForgotPasswordPage() {
 
   if (done)
     return (
-      <AuthLayout title="Password changed">
+      <AuthLayout title={t("Password changed")}>
         <div className="text-center">
           <div className="mx-auto h-16 w-16 rounded-full bg-gradient-spice grid place-items-center text-primary-foreground shadow-warm">
             <MailCheck className="h-7 w-7" />
           </div>
           <p className="mt-4 text-sm text-muted-foreground">
-            You can now sign in with your new password.
+            {t("You can now sign in with your new password.")}
           </p>
           <Link to="/login" className="mt-6 inline-flex rounded-xl bg-gradient-spice text-primary-foreground px-5 py-2.5 text-sm font-bold shadow-warm">
-            Back to log in
+            {t("Back to log in")}
           </Link>
         </div>
       </AuthLayout>
     );
 
   return (
-    <AuthLayout title="Forgot password?" subtitle="We'll email you a code to set a new password.">
+    <AuthLayout title={t("Forgot password?")} subtitle={t("We'll email you a code to set a new password.")}>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -65,7 +67,7 @@ function ForgotPasswordPage() {
         }}
         className="space-y-3"
       >
-        <Field label="Email">
+        <Field label={t("Email")}>
           <input
             className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-primary transition"
             value={email}
@@ -77,23 +79,23 @@ function ForgotPasswordPage() {
         </Field>
         {sent && (
           <>
-            <p className="text-sm text-muted-foreground">If an account exists, Brevo sent a six-digit reset code to your inbox.</p>
-            <Field label="Reset code">
+            <p className="text-sm text-muted-foreground">{t("If an account exists, Brevo sent a six-digit reset code to your inbox.")}</p>
+            <Field label={t("Reset code")}>
               <input className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" maxLength={6} required />
             </Field>
-            <Field label="New password">
+            <Field label={t("New password")}>
               <input className="w-full rounded-xl border border-border bg-card px-4 py-3 text-sm" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={10} required />
             </Field>
           </>
         )}
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs text-destructive">{t(error)}</p>}
         <button className="w-full rounded-xl bg-gradient-spice text-primary-foreground py-3 font-display font-bold shadow-warm">
-          {sent ? "Change password" : "Send reset code"}
+          {sent ? t("Change password") : t("Send reset code")}
         </button>
       </form>
       <p className="mt-4 text-center text-sm text-muted-foreground">
         <Link to="/login" className="font-semibold text-primary">
-          Back to log in
+          {t("Back to log in")}
         </Link>
       </p>
     </AuthLayout>

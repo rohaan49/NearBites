@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -134,6 +134,46 @@ class OrderStatusEvent(Base):
     actor_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String(30))
     at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class MealPlan(Base):
+    __tablename__ = "meal_plans"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    kitchen_id: Mapped[str] = mapped_column(ForeignKey("kitchens.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    price_pkr: Mapped[int] = mapped_column(Integer)
+    capacity: Mapped[int] = mapped_column(Integer)
+    delivery_time: Mapped[str] = mapped_column(String(5))
+    menu: Mapped[dict[str, list[str]]] = mapped_column(JSON)
+    published: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class MealSubscription(Base):
+    __tablename__ = "meal_subscriptions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    plan_id: Mapped[str] = mapped_column(ForeignKey("meal_plans.id"), index=True)
+    buyer_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    plan_name: Mapped[str] = mapped_column(String(120))
+    delivery_address: Mapped[str] = mapped_column(Text)
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(20), default="active")
+
+
+class MealDelivery(Base):
+    __tablename__ = "meal_deliveries"
+    __table_args__ = (UniqueConstraint("subscription_id", "delivery_date"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    subscription_id: Mapped[str] = mapped_column(ForeignKey("meal_subscriptions.id"), index=True)
+    delivery_date: Mapped[date] = mapped_column(Date, index=True)
+    delivery_time: Mapped[str] = mapped_column(String(5))
+    dish_id: Mapped[str] = mapped_column(ForeignKey("dishes.id"))
+    dish_name: Mapped[str] = mapped_column(String(140))
+    total_pkr: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="scheduled")
 
 
 class EmailCode(Base):

@@ -1,3 +1,4 @@
+import { LanguageSwitch, useLanguage } from "@/lib/language";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
@@ -22,6 +23,7 @@ const input =
   "w-full rounded-xl border border-border bg-card px-4 py-3 text-sm outline-none focus:border-primary transition";
 
 function SignupPage() {
+  const { t } = useLanguage();
   const { signup } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
@@ -50,31 +52,31 @@ function SignupPage() {
   };
 
   return (
-    <AuthLayout title="Create your account" subtitle="Buy meals or set up your kitchen with the same login.">
+    <AuthLayout title={t("Create your account")} subtitle={t("Buy meals or set up your kitchen with the same login.")}>
       <form onSubmit={submit} className="space-y-3">
-        {errors.form && <p className="text-xs text-destructive">{errors.form}</p>}
-        <Field label="Full name" error={errors.name}>
+        {errors.form && <p className="text-xs text-destructive">{t(errors.form)}</p>}
+        <Field label={t("Full name")} error={errors.name}>
           <input className={input} value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ayesha Khan" />
         </Field>
-        <Field label="Email" error={errors.email}>
+        <Field label={t("Email")} error={errors.email}>
           <input className={input} value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="you@example.com" />
         </Field>
-        <Field label="Password" error={errors.password}>
+        <Field label={t("Password")} error={errors.password}>
           <input type="password" className={input} value={form.password} onChange={(e) => set("password", e.target.value)} placeholder="••••••••" />
         </Field>
-        <Field label="Confirm password" error={errors.confirm}>
+        <Field label={t("Confirm password")} error={errors.confirm}>
           <input type="password" className={input} value={form.confirm} onChange={(e) => set("confirm", e.target.value)} placeholder="••••••••" />
         </Field>
 
         <button className="w-full rounded-xl bg-gradient-spice text-primary-foreground py-3 font-display font-bold shadow-warm">
-          Create account
+          {t("Create account")}
         </button>
       </form>
 
       <p className="mt-5 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
+        {t("Already have an account?")}{" "}
         <Link to="/login" className="font-semibold text-primary">
-          Log in
+          {t("Log in")}
         </Link>
       </p>
     </AuthLayout>
@@ -82,11 +84,12 @@ function SignupPage() {
 }
 
 export function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+  const { t } = useLanguage();
   return (
     <label className="block">
       <span className="text-xs font-semibold text-muted-foreground">{label}</span>
       <div className="mt-1.5">{children}</div>
-      {error && <span className="mt-1 block text-xs font-medium text-destructive">{error}</span>}
+      {error && <span className="mt-1 block text-xs font-medium text-destructive">{t(error)}</span>}
     </label>
   );
 }
@@ -95,7 +98,8 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
   return (
     <div className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto w-full max-w-md">
-        <Link to="/" className="flex items-center justify-center gap-2">
+        <div className="mb-4 flex justify-end"><LanguageSwitch /></div>
+        <Link to="/" dir="ltr" className="flex items-center justify-center gap-2">
           <span className="h-9 w-9 rounded-full bg-gradient-spice grid place-items-center text-primary-foreground font-display font-bold shadow-warm">n</span>
           <span className="font-display text-xl font-bold tracking-tight">
             near<span className="text-primary">bites</span>

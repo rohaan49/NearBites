@@ -10,10 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyEmailRouteImport } from './routes/verify-email'
+import { Route as SubscriptionsRouteImport } from './routes/subscriptions'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SellerTrainingRouteImport } from './routes/seller-training'
+import { Route as SellerMealPlansRouteImport } from './routes/seller-meal-plans'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as OrdersRouteImport } from './routes/orders'
+import { Route as MealPlansRouteImport } from './routes/meal-plans'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as InsightsRouteImport } from './routes/insights'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
@@ -32,6 +35,11 @@ const VerifyEmailRoute = VerifyEmailRouteImport.update({
   path: '/verify-email',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SubscriptionsRoute = SubscriptionsRouteImport.update({
+  id: '/subscriptions',
+  path: '/subscriptions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -42,6 +50,11 @@ const SellerTrainingRoute = SellerTrainingRouteImport.update({
   path: '/seller-training',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SellerMealPlansRoute = SellerMealPlansRouteImport.update({
+  id: '/seller-meal-plans',
+  path: '/seller-meal-plans',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SearchRoute = SearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -50,6 +63,11 @@ const SearchRoute = SearchRouteImport.update({
 const OrdersRoute = OrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MealPlansRoute = MealPlansRouteImport.update({
+  id: '/meal-plans',
+  path: '/meal-plans',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -125,10 +143,13 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/insights': typeof InsightsRoute
   '/login': typeof LoginRoute
+  '/meal-plans': typeof MealPlansRoute
   '/orders': typeof OrdersRoute
   '/search': typeof SearchRoute
+  '/seller-meal-plans': typeof SellerMealPlansRoute
   '/seller-training': typeof SellerTrainingRoute
   '/signup': typeof SignupRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/vendor/$id': typeof VendorIdRoute
 }
@@ -144,10 +165,13 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/insights': typeof InsightsRoute
   '/login': typeof LoginRoute
+  '/meal-plans': typeof MealPlansRoute
   '/orders': typeof OrdersRoute
   '/search': typeof SearchRoute
+  '/seller-meal-plans': typeof SellerMealPlansRoute
   '/seller-training': typeof SellerTrainingRoute
   '/signup': typeof SignupRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/vendor/$id': typeof VendorIdRoute
 }
@@ -164,10 +188,13 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/insights': typeof InsightsRoute
   '/login': typeof LoginRoute
+  '/meal-plans': typeof MealPlansRoute
   '/orders': typeof OrdersRoute
   '/search': typeof SearchRoute
+  '/seller-meal-plans': typeof SellerMealPlansRoute
   '/seller-training': typeof SellerTrainingRoute
   '/signup': typeof SignupRoute
+  '/subscriptions': typeof SubscriptionsRoute
   '/verify-email': typeof VerifyEmailRoute
   '/vendor/$id': typeof VendorIdRoute
 }
@@ -185,10 +212,13 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/insights'
     | '/login'
+    | '/meal-plans'
     | '/orders'
     | '/search'
+    | '/seller-meal-plans'
     | '/seller-training'
     | '/signup'
+    | '/subscriptions'
     | '/verify-email'
     | '/vendor/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -204,10 +234,13 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/insights'
     | '/login'
+    | '/meal-plans'
     | '/orders'
     | '/search'
+    | '/seller-meal-plans'
     | '/seller-training'
     | '/signup'
+    | '/subscriptions'
     | '/verify-email'
     | '/vendor/$id'
   id:
@@ -223,10 +256,13 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/insights'
     | '/login'
+    | '/meal-plans'
     | '/orders'
     | '/search'
+    | '/seller-meal-plans'
     | '/seller-training'
     | '/signup'
+    | '/subscriptions'
     | '/verify-email'
     | '/vendor/$id'
   fileRoutesById: FileRoutesById
@@ -243,10 +279,13 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   InsightsRoute: typeof InsightsRoute
   LoginRoute: typeof LoginRoute
+  MealPlansRoute: typeof MealPlansRoute
   OrdersRoute: typeof OrdersRoute
   SearchRoute: typeof SearchRoute
+  SellerMealPlansRoute: typeof SellerMealPlansRoute
   SellerTrainingRoute: typeof SellerTrainingRoute
   SignupRoute: typeof SignupRoute
+  SubscriptionsRoute: typeof SubscriptionsRoute
   VerifyEmailRoute: typeof VerifyEmailRoute
   VendorIdRoute: typeof VendorIdRoute
 }
@@ -258,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/verify-email'
       fullPath: '/verify-email'
       preLoaderRoute: typeof VerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/subscriptions': {
+      id: '/subscriptions'
+      path: '/subscriptions'
+      fullPath: '/subscriptions'
+      preLoaderRoute: typeof SubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -274,6 +320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SellerTrainingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/seller-meal-plans': {
+      id: '/seller-meal-plans'
+      path: '/seller-meal-plans'
+      fullPath: '/seller-meal-plans'
+      preLoaderRoute: typeof SellerMealPlansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/search': {
       id: '/search'
       path: '/search'
@@ -286,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: '/orders'
       fullPath: '/orders'
       preLoaderRoute: typeof OrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meal-plans': {
+      id: '/meal-plans'
+      path: '/meal-plans'
+      fullPath: '/meal-plans'
+      preLoaderRoute: typeof MealPlansRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -387,10 +447,13 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   InsightsRoute: InsightsRoute,
   LoginRoute: LoginRoute,
+  MealPlansRoute: MealPlansRoute,
   OrdersRoute: OrdersRoute,
   SearchRoute: SearchRoute,
+  SellerMealPlansRoute: SellerMealPlansRoute,
   SellerTrainingRoute: SellerTrainingRoute,
   SignupRoute: SignupRoute,
+  SubscriptionsRoute: SubscriptionsRoute,
   VerifyEmailRoute: VerifyEmailRoute,
   VendorIdRoute: VendorIdRoute,
 }

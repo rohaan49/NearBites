@@ -1,6 +1,5 @@
 import os
 from urllib.parse import urlparse
-from math import asin, cos, radians, sin, sqrt
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
@@ -11,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .database import get_db
+from .delivery import distance_km, validate_delivery_area
 from .models import (
     Address,
     Dish,
@@ -50,9 +50,11 @@ from .training import router as training_router
 from .operations import router as operations_router
 from .analytics import router as analytics_router
 from .review_queue import router as review_queue_router
+from .application_review import application_readiness
 from .analytics_extended import router as analytics_extended_router
 from .admin_users import router as admin_users_router
 from .chefcam import router as chefcam_router
+from .meal_plans import router as meal_plan_router
 
 
 api = FastAPI(title="NearBites API", version="0.1.0")
@@ -65,6 +67,7 @@ api.include_router(review_queue_router)
 api.include_router(analytics_extended_router)
 api.include_router(admin_users_router)
 api.include_router(chefcam_router)
+api.include_router(meal_plan_router)
 api.add_middleware(
     CORSMiddleware,
     allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:8080")],
@@ -233,15 +236,7 @@ def priced_lines(db: Session, lines: list, address_id: str, buyer_id: str) -> tu
     kitchen = db.get(Kitchen, kitchen_id)
     if kitchen is None or kitchen.status != "active" or not kitchen.training_verified:
         raise HTTPException(status.HTTP_409_CONFLICT, "Kitchen unavailable")
-    if (
-        address.latitude is None or address.longitude is None
-        or kitchen.latitude is None or kitchen.longitude is None
-    ):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Both kitchen and delivery address need map locations")
-    if distance_km(address.latitude, address.longitude, kitchen.latitude, kitchen.longitude) > float(
-        os.getenv("MAX_DELIVERY_KM", "10")
-    ):
-        raise HTTPException(status.HTTP_409_CONFLICT, "Address is outside this kitchen's delivery area")
+    validate_delivery_area(kitchen, address)
     priced = []
     subtotal = 0
     for line in lines:
@@ -252,12 +247,6 @@ def priced_lines(db: Session, lines: list, address_id: str, buyer_id: str) -> tu
         priced.append((dish, line.quantity))
     delivery_fee = int(os.getenv("DELIVERY_FEE_PKR", "80"))
     return priced, subtotal, delivery_fee, kitchen_id
-
-
-def distance_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
-    a = sin(radians(lat2 - lat1) / 2) ** 2
-    a += cos(radians(lat1)) * cos(radians(lat2)) * sin(radians(lng2 - lng1) / 2) ** 2
-    return 6371.0088 * 2 * asin(min(1.0, sqrt(a)))
 
 
 def nearby(kitchen: Kitchen, lat: float | None, lng: float | None, radius_km: float | None) -> float | None:
@@ -794,6 +783,8 @@ def decide_kitchen(kitchen_id: str, payload: DecisionIn, admin: Admin, db: Db) -
         raise not_found("Kitchen")
     if kitchen.status != "pending":
         raise HTTPException(status.HTTP_409_CONFLICT, "Kitchen is not pending")
+    if payload.decision == "approve" and not application_readiness(db, kitchen)["ready"]:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Complete email verification, location and all training lessons before approving this kitchen")
     if payload.decision == "reject" and not payload.reason:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Reason required")
     kitchen.status = "active" if payload.decision == "approve" else "rejected"

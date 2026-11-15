@@ -50,6 +50,10 @@ def marketplace_discovery(db: Db) -> dict:
     ).all()
     dish_by_id = {dish.id: dish for dish in dishes}
     kitchen_by_id = {dish.kitchen_id: dish.kitchen for dish in dishes}
+    preview_kitchens = db.scalars(select(Kitchen).join(Dish, Dish.kitchen_id == Kitchen.id).where(
+        Kitchen.status == "sample", Dish.status == "sample",
+    ).distinct()).all()
+    kitchen_by_id.update({kitchen.id: kitchen for kitchen in preview_kitchens})
     delivered = db.scalars(
         select(Order).where(Order.status == "delivered", Order.placed_at >= since_90d)
     ).all()
@@ -90,17 +94,42 @@ def marketplace_discovery(db: Db) -> dict:
         }
 
     trending = sorted(dishes, key=lambda dish: (sold_30d[dish.id], dinner_30d[dish.id]), reverse=True)[:6]
-    ratings = dict(db.execute(
-        select(Review.kitchen_id, func.avg(Review.rating)).group_by(Review.kitchen_id)
-    ).all())
+    # Shrink small review samples toward the mean of their own demo/live cohort.
+    # Keep fictional ratings out of the prior used for real kitchens.
+    rating_sums: Counter[str] = Counter()
+    rating_counts: Counter[str] = Counter()
+    cohort_sums: Counter[bool] = Counter()
+    cohort_counts: Counter[bool] = Counter()
+    for kitchen_id, count, rating_total, owner_email in db.execute(
+        select(Review.kitchen_id, func.count(Review.id), func.sum(Review.rating), User.email)
+        .join(Kitchen, Kitchen.id == Review.kitchen_id)
+        .join(User, User.id == Kitchen.owner_id)
+        .group_by(Review.kitchen_id, User.email)
+    ):
+        is_demo = owner_email.endswith("@demo.nearbites.invalid")
+        rating_sums[kitchen_id] = rating_total
+        rating_counts[kitchen_id] = count
+        cohort_sums[is_demo] += rating_total
+        cohort_counts[is_demo] += count
+
+    def adjusted_rating(kitchen: Kitchen) -> float | None:
+        count = rating_counts[kitchen.id]
+        if not count:
+            return None
+        is_demo = kitchen.owner.email.endswith("@demo.nearbites.invalid")
+        prior = cohort_sums[is_demo] / cohort_counts[is_demo] if cohort_counts[is_demo] else 3.5
+        prior_weight = 5
+        return (rating_sums[kitchen.id] + prior_weight * prior) / (count + prior_weight)
+
     kitchens = sorted(
         (kitchen for kitchen in kitchen_by_id.values() if kitchen_orders[kitchen.id] > 0),
-        key=lambda kitchen: kitchen_orders[kitchen.id], reverse=True,
+        key=lambda kitchen: (adjusted_rating(kitchen) or 0, kitchen_orders[kitchen.id]), reverse=True,
     )[:6]
     popular_kitchens = [{
         "id": kitchen.id, "name": kitchen.name, "chef": kitchen.chef, "area": kitchen.area,
         "orders_90d": kitchen_orders[kitchen.id],
-        "rating": round(float(ratings[kitchen.id]), 1) if ratings.get(kitchen.id) is not None else None,
+        "rating": round(adjusted_rating(kitchen), 2) if adjusted_rating(kitchen) is not None else None,
+        "review_count": rating_counts[kitchen.id],
         "is_demo": kitchen.owner.email.endswith("@demo.nearbites.invalid"),
     } for kitchen in kitchens]
     popular_by_day = []
@@ -114,7 +143,7 @@ def marketplace_discovery(db: Db) -> dict:
         "trending": [{**dish_card(dish), "portions_sold_30d": sold_30d[dish.id], "dinner_portions_30d": dinner_30d[dish.id]} for dish in trending],
         "popular_kitchens": popular_kitchens,
         "popular_by_day": popular_by_day,
-        "definition": "Popularity uses delivered orders from the last 30 days; weekday picks use the last 90 days. Remaining portions are current listing stock.",
+        "definition": "Dish popularity uses delivered orders from the last 30 days; weekday picks use 90 days. Kitchen ratings use a five-review Bayesian prior from the same demo or live cohort and rank reviewed kitchens before unreviewed ones. Remaining portions are current listing stock.",
     }
 
 

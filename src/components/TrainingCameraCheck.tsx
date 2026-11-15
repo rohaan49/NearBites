@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/language";
 import { useEffect, useRef, useState } from "react";
 import { api, apiRequest } from "@/lib/api";
 
@@ -9,6 +10,7 @@ type CameraResult = {
 };
 
 export function TrainingCameraCheck({ moduleId, onSubmitted }: { moduleId: string; onSubmitted: () => Promise<void> }) {
+  const { t } = useLanguage();
   const usesModel = moduleId === "food-safety";
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -131,28 +133,28 @@ export function TrainingCameraCheck({ moduleId, onSubmitted }: { moduleId: strin
   return (
     <div className="mt-3 space-y-3">
       <p className="text-sm text-muted-foreground">{usesModel
-        ? "Show your hairnet and gloves clearly in one frame. The model checks the image, then an admin reviews the proof before approval."
-        : "Show the requested proof clearly in the camera. Capture a photo, review it, then send it for admin review."}</p>
+        ? t("Show your hairnet and gloves clearly in one frame. The model checks the image, then an admin reviews the proof before approval.")
+        : t("Show the requested proof clearly in the camera. Capture a photo, review it, then send it for admin review.")}</p>
       <video ref={video} autoPlay playsInline muted className={"w-full max-w-md rounded-xl bg-black " + (active ? "block" : "hidden")} />
-      {captured && previewUrl.current && <img src={previewUrl.current} alt="Captured proof preview" className="w-full max-w-md rounded-xl border border-border object-cover" />}
+      {captured && previewUrl.current && <img src={previewUrl.current} alt={t("Captured proof preview")} className="w-full max-w-md rounded-xl border border-border object-cover" />}
       <div className="flex flex-wrap gap-2">
         {!active && !captured ? (
-          <button type="button" onClick={start} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-semibold text-white">Open camera</button>
+          <button type="button" onClick={start} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-semibold text-white">{t("Open camera")}</button>
         ) : active ? (
           <>
-            <button type="button" onClick={capture} disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? "Capturing…" : "Capture photo"}</button>
-            <button type="button" onClick={stop} disabled={busy} className="rounded-xl border border-border px-4 py-2 text-sm">Close camera</button>
+            <button type="button" onClick={capture} disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? t("Capturing…") : t("Capture photo")}</button>
+            <button type="button" onClick={stop} disabled={busy} className="rounded-xl border border-border px-4 py-2 text-sm">{t("Close camera")}</button>
           </>
         ) : (
           <>
-            <button type="button" onClick={retake} disabled={busy} className="rounded-xl border border-border px-4 py-2 text-sm disabled:opacity-50">Retake photo</button>
-            <button type="button" onClick={sendCaptured} disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? checking ? "Checking photo…" : "Sending…" : "Send photo for admin review"}</button>
+            <button type="button" onClick={retake} disabled={busy} className="rounded-xl border border-border px-4 py-2 text-sm disabled:opacity-50">{t("Retake photo")}</button>
+            <button type="button" onClick={sendCaptured} disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy ? checking ? t("Checking photo…") : "Sending…" : t("Send photo for admin review")}</button>
           </>
         )}
       </div>
-      {checking && <p className="text-sm text-muted-foreground" role="status">Checking for a hairnet and gloves. The first check may take a minute.</p>}
-      {result && usesModel && <p className="text-sm" aria-live="polite">Hairnet: {result.hairnet_detected ? "detected" : "not detected"} · Gloves: {result.glove_detected ? "detected" : "not detected"}. {result.status === "pending_admin_review" ? "Proof submitted for admin review." : "Adjust the camera view and capture again."}</p>}
-      {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+      {checking && <p className="text-sm text-muted-foreground" role="status">{t("Checking for a hairnet and gloves. The first check may take a minute.")}</p>}
+      {result && usesModel && <p className="text-sm" aria-live="polite">{t("Hairnet:")} {result.hairnet_detected ? t("detected") : t("not detected")} {t("· Gloves:")} {result.glove_detected ? t("detected") : t("not detected")}. {result.status === "pending_admin_review" ? t("Proof submitted for admin review.") : t("Adjust the camera view and capture again.")}</p>}
+      {error && <p className="text-sm text-destructive" role="alert">{t(error)}</p>}
     </div>
   );
 }

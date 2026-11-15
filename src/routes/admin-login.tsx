@@ -1,3 +1,4 @@
+import { LanguageSwitch, useLanguage } from "@/lib/language";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/admin-login")({
 });
 
 function AdminLoginPage() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { login, logout } = useAuth();
   const [email, setEmail] = useState("");
@@ -43,30 +45,33 @@ function AdminLoginPage() {
   return (
     <div className="min-h-screen grid place-items-center bg-background px-4">
       <form onSubmit={submit} className="w-full max-w-sm bg-card border border-border rounded-3xl p-6 shadow-warm">
-        <div className="h-12 w-12 rounded-2xl bg-gradient-spice text-primary-foreground grid place-items-center mb-4 shadow-warm">
-          <ShieldCheck className="h-6 w-6" />
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-spice text-primary-foreground shadow-warm">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+          <LanguageSwitch />
         </div>
-        <h1 className="font-display text-2xl font-bold">Admin sign-in</h1>
-        <p className="text-sm text-muted-foreground mt-1">Restricted to platform owner.</p>
+        <h1 className="font-display text-2xl font-bold">{t("Admin sign-in")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t("Restricted to platform owner.")}</p>
 
         <div className="mt-5 space-y-3">
           <label className="block text-xs font-semibold">
-            Email
+            {t("Email")}
             <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-normal" />
           </label>
           <label className="block text-xs font-semibold">
-            Password
+            {t("Password")}
             <input type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-normal" />
           </label>
         </div>
 
-        {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
+        {error && <p className="mt-3 text-xs text-destructive">{t(error)}</p>}
 
         <button type="submit" disabled={loading}
           className="mt-5 w-full bg-gradient-spice text-primary-foreground rounded-xl py-2.5 text-sm font-semibold shadow-warm flex items-center justify-center gap-2 disabled:opacity-60">
-          {loading && <Loader2 className="h-4 w-4 animate-spin" />} Sign in
+          {loading && <Loader2 className="h-4 w-4 animate-spin" />} {t("Sign in")}
         </button>
       </form>
     </div>

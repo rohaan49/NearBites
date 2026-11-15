@@ -1,3 +1,4 @@
+import { useLanguage } from "@/lib/language";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { MailCheck } from "lucide-react";
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/verify-email")({
 });
 
 function VerifyEmailPage() {
+  const { t } = useLanguage();
   const { user, hydrated, verifyEmail, resendEmail } = useAuth();
   const navigate = useNavigate();
   const [digits, setDigits] = useState(["", "", "", "", "", ""]);
@@ -59,12 +61,12 @@ function VerifyEmailPage() {
   };
 
   return (
-    <AuthLayout title="Verify your email" subtitle={`We sent a 6-digit code to ${user?.email ?? "your inbox"}.`}>
+    <AuthLayout title={t("Verify your email")} subtitle={t("We sent a 6-digit code to {email}.", { email: user?.email ? "\u2068" + user.email + "\u2069" : t("your inbox") })}>
       <div className="mx-auto h-16 w-16 rounded-full bg-gradient-spice grid place-items-center text-primary-foreground shadow-warm">
         <MailCheck className="h-7 w-7" />
       </div>
       <form onSubmit={submit} className="mt-6">
-        <div className="flex justify-between gap-2">
+        <div dir="ltr" className="flex justify-between gap-2">
           {digits.map((d, i) => (
             <input
               key={i}
@@ -81,14 +83,14 @@ function VerifyEmailPage() {
             />
           ))}
         </div>
-        {error && <p className="mt-2 text-xs font-medium text-destructive">{error}</p>}
+        {error && <p className="mt-2 text-xs font-medium text-destructive">{t(error)}</p>}
         <button className="mt-5 w-full rounded-xl bg-gradient-spice text-primary-foreground py-3 font-display font-bold shadow-warm">
-          Verify email
+          {t("Verify email")}
         </button>
       </form>
 
       <p className="mt-4 text-center text-sm text-muted-foreground">
-        Didn't get it?{" "}
+        {t("Didn't get it?")}{" "}
         <button
           disabled={cooldown > 0}
           onClick={async () => {
@@ -102,13 +104,13 @@ function VerifyEmailPage() {
           }}
           className="font-semibold text-primary disabled:text-muted-foreground"
         >
-          {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
+          {cooldown > 0 ? t("Resend code in {seconds}s", { seconds: cooldown }) : t("Resend code")}
         </button>
       </p>
       <p className="mt-2 text-center text-xs text-muted-foreground">
-        Wrong email?{" "}
+        {t("Wrong email?")}{" "}
         <Link to="/signup" className="font-semibold text-primary">
-          Start over
+          {t("Start over")}
         </Link>
       </p>
     </AuthLayout>
