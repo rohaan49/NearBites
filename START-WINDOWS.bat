@@ -9,7 +9,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\ensure-fronten
 if errorlevel 1 goto build_failed
 
 echo Checking the NearBites API...
-curl.exe --silent --fail --max-time 5 --output NUL "http://127.0.0.1:8000/api/v1/health" 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\check-backend-current.ps1"
+if errorlevel 2 goto api_conflict
 if errorlevel 1 start "NearBites API" "%~dp0scripts\run-backend.bat"
 
 echo Checking the NearBites website...
@@ -56,5 +57,10 @@ exit /b 1
 
 :website_conflict
 echo Another process is using port 8080. Close it, then run Start Windows again.
+pause
+exit /b 1
+
+:api_conflict
+echo Another process is using port 8000. Close it, then run Start Windows again.
 pause
 exit /b 1

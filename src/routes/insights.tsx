@@ -72,6 +72,9 @@ function InsightsPage() {
       api.get<Opportunities>("/seller/analytics/opportunities"),
     ])
       .then(([data, feedback, next]) => {
+        if (!Array.isArray(next.surplus_advice) || !Array.isArray(next.forecast) || !next.retention) {
+          throw new Error("Insights data is out of date. Restart NearBites and refresh this page.");
+        }
         setInsights(data);
         setReviews(feedback);
         setOpportunities(next);

@@ -10,6 +10,7 @@ try {
 }
 
 $styleMatch = [regex]::Match($page.Content, 'href="(?<path>/assets/styles-[^"/]+\.css)"')
+$styleIsCurrent = $false
 if ($styleMatch.Success) {
   $assetPath = $styleMatch.Groups['path'].Value
   $builtStyle = Join-Path $publicDir ($assetPath.TrimStart('/') -replace '/', '\')
@@ -17,8 +18,7 @@ if ($styleMatch.Success) {
     try {
       $asset = Invoke-WebRequest -Uri ("http://127.0.0.1:8080" + $assetPath) -UseBasicParsing -TimeoutSec 5
       if ($asset.StatusCode -eq 200 -and $asset.Headers['Content-Type'] -match 'css') {
-        Write-Host "NearBites website and stylesheet are current."
-        exit 0
+        $styleIsCurrent = $true
       }
     } catch { }
   }
@@ -38,6 +38,13 @@ if (-not $process -or $process.Name -notmatch '^bun(\.exe)?$' -or
     $process.CommandLine -notmatch '\.output-windows[\\/]server[\\/]index\.mjs') {
   Write-Host "Port 8080 is used by a different process. Close it before starting NearBites."
   exit 2
+}
+
+$serverEntry = Join-Path $repoRoot ".output-windows/server/index.mjs"
+if ($styleIsCurrent -and (Test-Path -LiteralPath $serverEntry) -and
+    $process.CreationDate.ToUniversalTime() -ge (Get-Item -LiteralPath $serverEntry).LastWriteTimeUtc) {
+  Write-Host "NearBites website and stylesheet are current."
+  exit 0
 }
 
 Write-Host "Replacing a stale NearBites website process (PID $($listener.OwningProcess))."

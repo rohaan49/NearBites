@@ -26,7 +26,7 @@ function SellerMealPlans() {
   const enabled = !!user && user.role !== "admin";
   const plans = useQuery({
     queryKey: ["seller-meal-plans", user?.id],
-    queryFn: () => api.get<{ items: Plan[]; can_publish: boolean }>("/seller/meal-plans"),
+    queryFn: () => api.get<{ items: Plan[]; kitchen_name: string; is_sample_kitchen: boolean; can_publish: boolean }>("/seller/meal-plans"),
     enabled, retry: false,
   });
   const schedule = useQuery({
@@ -61,6 +61,7 @@ function SellerMealPlans() {
           <div>
             <h1 className="font-display text-3xl font-bold">{t("Manage meal plans")}</h1>
             <p className="mt-2 text-sm text-muted-foreground">{t("Set a weekly menu and see what subscribers have booked.")}</p>
+            {plans.data && <p className="mt-1 text-sm font-semibold text-primary">{plans.data.kitchen_name}</p>}
           </div>
           {plans.data && <button onClick={() => setEditor("new")} className={mealButton}>{t("New plan")}</button>}
         </header>
@@ -72,11 +73,12 @@ function SellerMealPlans() {
         ) : plans.error && <p role="alert" className="text-destructive">{t(plans.error.message)}</p>}
         {plans.isLoading && <p>{t("Loading meal plans…")}</p>}
         {error && <p role="alert" className="text-destructive">{t(error)}</p>}
-        {plans.data && !plans.data.can_publish && <p className="rounded-xl bg-muted p-3 text-sm">{t("Your kitchen needs active approval, current training, and a map location to publish.")}</p>}
+        {plans.data?.is_sample_kitchen ? <p className="rounded-xl bg-muted p-3 text-sm">{t("This sample kitchen is a preview and cannot publish meal plans. To demonstrate editable plans and orderable dishes, sign in as order-test-seller@demo.nearbites.invalid.")}</p>
+          : plans.data && !plans.data.can_publish && <p className="rounded-xl bg-muted p-3 text-sm">{t("Your kitchen needs active approval, current training, and a map location to publish.")}</p>}
         {editor && plans.data && (
           listings.data ? <PlanEditor key={editor === "new" ? "new" : editor.id} plan={editor === "new" ? null : editor}
             dishes={listings.data.items.filter((dish) => dish.status === "approved")}
-            canPublish={plans.data.can_publish} close={() => setEditor(null)} saved={async () => {
+            canPublish={plans.data.can_publish} sampleKitchen={plans.data.is_sample_kitchen} close={() => setEditor(null)} saved={async () => {
               await Promise.all([plans.refetch(), client.invalidateQueries({ queryKey: ["meal-plans"] })]);
               setEditor(null);
             }} /> : listings.error ? <p role="alert">{t(listings.error.message)}</p> : <p>{t("Loading approved dishes…")}</p>
@@ -140,8 +142,8 @@ function SellerMealPlans() {
   );
 }
 
-function PlanEditor({ plan, dishes, canPublish, close, saved }: {
-  plan: Plan | null; dishes: Dish[]; canPublish: boolean; close: () => void; saved: () => Promise<void>;
+function PlanEditor({ plan, dishes, canPublish, sampleKitchen, close, saved }: {
+  plan: Plan | null; dishes: Dish[]; canPublish: boolean; sampleKitchen: boolean; close: () => void; saved: () => Promise<void>;
 }) {
   const { t } = useLanguage();
   const [name, setName] = useState(plan?.name ?? "");
@@ -188,6 +190,7 @@ function PlanEditor({ plan, dishes, canPublish, close, saved }: {
         <label className="text-sm font-semibold">{t("Daily capacity for this plan")}<input className={mealInput} required type="number" min={1} max={100} value={capacity} onChange={(event) => setCapacity(event.target.value)} /></label>
       </fieldset>
       <p className="mt-4 text-sm text-muted-foreground">{t("Choose up to three approved dishes per day. Changes apply to new bookings.")}</p>
+      {!sampleKitchen && <p className="mt-2 text-sm">{t("Want another meal? Add any dish on your")} <Link to="/dashboard" hash="add-dish" className="font-semibold text-primary underline">{t("kitchen dashboard")}</Link>{t(". After admin approval, it will appear in these menus. Each kitchen sees only its own dishes.")}</p>}
       {!dishes.length && <p className="mt-3 text-sm">{t("Add an approved dish from your")} <Link to="/dashboard" className="font-semibold text-primary">{t("kitchen dashboard")}</Link> {t("first.")}</p>}
       <fieldset disabled={busy || !dishes.length} className="mt-3 grid gap-2">
         {WEEKDAYS.map((day, index) => (

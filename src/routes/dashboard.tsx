@@ -290,13 +290,13 @@ function Dashboard() {
               </div>
             </section>
             {!kitchen.training_verified || kitchen.status !== "active" ? (
-              <div className="mt-6 rounded-2xl border border-border bg-card p-5">
+              <div id="add-dish" className="mt-6 scroll-mt-24 rounded-2xl border border-border bg-card p-5">
                 <h2 className="font-display font-bold">{t("Add a dish")}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">{t("Finish seller training and get your kitchen approved to submit a listing for review.")}</p>
                 <Link to="/seller-training" className="mt-3 inline-block text-sm font-semibold text-primary underline">{t("View training progress")}</Link>
               </div>
             ) : (
-              <form onSubmit={createListing} className="mt-6 space-y-3 rounded-2xl border border-border bg-card p-5">
+              <form id="add-dish" onSubmit={createListing} className="mt-6 scroll-mt-24 space-y-3 rounded-2xl border border-border bg-card p-5">
                 <h2 className="font-display font-bold">{t("Add a dish")}</h2>
                 <input required placeholder={t("Dish name")} value={listingForm.name} onChange={(event) => setListingForm((current) => ({ ...current, name: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />
                 <textarea required minLength={10} placeholder={t("Ingredients, allergens, and description")} value={listingForm.description} onChange={(event) => setListingForm((current) => ({ ...current, description: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm" />

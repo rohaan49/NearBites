@@ -1147,5 +1147,10 @@ export const urdu: Record<string, string> = {
   "Used for planning:": "منصوبہ بندی کے لیے منتخب:",
   "Weekday average": "ہفتے کے دن کی اوسط",
   "Holt-Winters": "ہولٹ ونٹرز",
-  "Daily delivered orders in Pakistan time; Holt-Winters additive weekly seasonality is compared with an eight-week weekday average on the latest 14 complete days. The lower holdout MAE is selected. Sparse histories use the weekday average.": "پاکستانی وقت کے مطابق روزانہ مکمل آرڈرز؛ ہولٹ ونٹرز کا گزشتہ 14 مکمل دنوں پر آٹھ ہفتوں کی اوسط سے موازنہ ہوتا ہے۔ کم MAE والا طریقہ منتخب ہوتا ہے۔ کم ڈیٹا پر ہفتہ وار اوسط استعمال ہوتی ہے۔"
+  "Daily delivered orders in Pakistan time; Holt-Winters additive weekly seasonality is compared with an eight-week weekday average on the latest 14 complete days. The lower holdout MAE is selected. Sparse histories use the weekday average.": "پاکستانی وقت کے مطابق روزانہ مکمل آرڈرز؛ ہولٹ ونٹرز کا گزشتہ 14 مکمل دنوں پر آٹھ ہفتوں کی اوسط سے موازنہ ہوتا ہے۔ کم MAE والا طریقہ منتخب ہوتا ہے۔ کم ڈیٹا پر ہفتہ وار اوسط استعمال ہوتی ہے۔",
+  "This local demo kitchen can show meal plans without completed training. Your lesson progress above shows what is still unfinished; this exception does not apply to real sellers.": "یہ مقامی ڈیمو باورچی خانہ تربیت مکمل کیے بغیر کھانے کے منصوبے دکھا سکتا ہے۔ اوپر آپ کی اصل تربیتی پیش رفت نظر آتی ہے؛ حقیقی فروخت کنندگان کو یہ رعایت حاصل نہیں۔",
+  "Want another meal? Add any dish on your": "کوئی اور کھانا شامل کرنا چاہتے ہیں؟ اپنے",
+  ". After admin approval, it will appear in these menus. Each kitchen sees only its own dishes.": " پر کھانا شامل کریں۔ منتظم کی منظوری کے بعد یہ ان فہرستوں میں نظر آئے گا۔ ہر باورچی خانے کو صرف اپنے کھانے نظر آتے ہیں۔",
+  "Insights data is out of date. Restart NearBites and refresh this page.": "انسائٹس کا ڈیٹا پرانا ہے۔ نیئر بائٹس دوبارہ چلائیں اور یہ صفحہ ریفریش کریں۔",
+  "This sample kitchen is a preview and cannot publish meal plans. To demonstrate editable plans and orderable dishes, sign in as order-test-seller@demo.nearbites.invalid.": "یہ نمونہ باورچی خانہ صرف پیش نظارہ ہے اور کھانے کے منصوبے شائع نہیں کر سکتا۔ قابل ترمیم منصوبے اور آرڈر کیے جا سکنے والے کھانے دکھانے کے لیے order-test-seller@demo.nearbites.invalid سے لاگ اِن کریں۔"
 };

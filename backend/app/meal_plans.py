@@ -146,6 +146,7 @@ def seller_plans(user: CurrentUser, db: Db) -> dict:
     kitchen = seller_kitchen(db, user)
     plans = db.scalars(select(MealPlan).where(MealPlan.kitchen_id == kitchen.id).order_by(MealPlan.name))
     return {"items": [plan_out(plan, kitchen, menu_dishes(db, plan), seller=True) for plan in plans],
+            "kitchen_name": kitchen.name, "is_sample_kitchen": kitchen.status == "sample",
             "can_publish": eligible_kitchen(db, kitchen), "today": local_today()}
 
 

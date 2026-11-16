@@ -37,6 +37,7 @@ function TrainingPage() {
   const [modules, setModules] = useState<Module[]>([]);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [verified, setVerified] = useState(false);
+  const [demoExempt, setDemoExempt] = useState(false);
   const [kitchenStatus, setKitchenStatus] = useState("");
   const [needsKitchen, setNeedsKitchen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -54,9 +55,10 @@ function TrainingPage() {
       const curriculum = await api.get<{ items: Module[] }>("/training/modules");
       curriculumItems = curriculum.items;
       setModules(curriculum.items);
-      const state = await api.get<{ modules: Progress[]; training_verified: boolean; kitchen_status: string }>("/seller/training");
+      const state = await api.get<{ modules: Progress[]; training_verified: boolean; training_exempt_for_local_demo: boolean; kitchen_status: string }>("/seller/training");
       setProgress(state.modules);
       setVerified(state.training_verified);
+      setDemoExempt(state.training_exempt_for_local_demo);
       setKitchenStatus(state.kitchen_status);
       setNeedsKitchen(false);
       setActiveId((current) => current ?? curriculum.items.find((module) => !state.modules.find((item) => item.module_id === module.id)?.completed)?.id ?? curriculum.items[0]?.id ?? null);
@@ -160,7 +162,8 @@ function TrainingPage() {
         {hydrated && !user && <p className="mt-5 rounded-2xl border border-border bg-card p-4 text-sm">{t("Please")} <Link to="/login" className="font-semibold text-primary underline">{t("log in")}</Link> {t("to start training.")}</p>}
         {user && !user.email_verified && <p className="mt-5 rounded-2xl border border-spice bg-spice/10 p-4 text-sm">{t("First,")} <Link to="/verify-email" className="font-semibold text-primary underline">{t("verify your email")}</Link>{t(". You can read the lessons now, but proof needs a verified account.")}</p>}
         {user && needsKitchen && <p className="mt-5 rounded-2xl border border-spice bg-spice/10 p-4 text-sm">{t("First,")} <Link to="/dashboard" className="font-semibold text-primary underline">{t("create your kitchen")}</Link>{t(". Your progress will then appear here.")}</p>}
-        {verified && <p className="mt-5 rounded-2xl bg-mehndi/15 p-4 text-sm font-semibold text-mehndi">{t("All five lessons are complete.")} {kitchenStatus === "active" ? t("Your kitchen is approved; you can create listings.") : t("Your kitchen also needs admin approval before you can sell.")}</p>}
+        {verified && completedCount === modules.length && modules.length > 0 && <p className="mt-5 rounded-2xl bg-mehndi/15 p-4 text-sm font-semibold text-mehndi">{t("All five lessons are complete.")} {kitchenStatus === "active" ? t("Your kitchen is approved; you can create listings.") : t("Your kitchen also needs admin approval before you can sell.")}</p>}
+        {demoExempt && completedCount < modules.length && <p className="mt-5 rounded-2xl bg-spice/10 p-4 text-sm">{t("This local demo kitchen can show meal plans without completed training. Your lesson progress above shows what is still unfinished; this exception does not apply to real sellers.")}</p>}
         {error && <p className="mt-5 rounded-2xl bg-destructive/10 p-4 text-sm text-destructive" role="alert">{t(error)}</p>}
         {loading && <p className="mt-6 text-sm text-muted-foreground">{t("Loading your training…")}</p>}
 

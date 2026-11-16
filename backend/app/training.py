@@ -147,6 +147,7 @@ def training(user: CurrentUser, db: Db) -> dict:
     rows = db.scalars(select(TrainingModule).where(TrainingModule.active.is_(True))).all()
     return {
         "training_verified": kitchen.training_verified,
+        "training_exempt_for_local_demo": local_order_test_kitchen(db, kitchen),
         "kitchen_status": kitchen.status,
         "retraining_at": kitchen.retraining_at,
         "modules": [module_progress(db, kitchen, row) for row in rows],
