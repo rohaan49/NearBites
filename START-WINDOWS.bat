@@ -5,12 +5,16 @@ cd /d "%~dp0"
 if not exist "backend\.venv\Scripts\python.exe" goto setup
 if not exist "node_modules" goto setup
 
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\ensure-frontend-build.ps1"
+if errorlevel 1 goto build_failed
+
 echo Checking the NearBites API...
 curl.exe --silent --fail --max-time 5 --output NUL "http://127.0.0.1:8000/api/v1/health" 2>nul
 if errorlevel 1 start "NearBites API" "%~dp0scripts\run-backend.bat"
 
 echo Checking the NearBites website...
-curl.exe --silent --fail --max-time 8 --output NUL "http://127.0.0.1:8080/" 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\check-frontend-current.ps1"
+if errorlevel 2 goto website_conflict
 if errorlevel 1 start "NearBites website" "%~dp0scripts\run-frontend.bat"
 
 echo Waiting for the API and website to become ready. The first startup can take a minute while the frontend builds.
@@ -20,6 +24,8 @@ set /a ATTEMPTS+=1
 curl.exe --silent --fail --max-time 5 --output NUL "http://127.0.0.1:8000/api/v1/health" 2>nul
 if errorlevel 1 goto wait_again
 curl.exe --silent --fail --max-time 8 --output NUL "http://127.0.0.1:8080/" 2>nul
+if errorlevel 1 goto wait_again
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\check-frontend-current.ps1"
 if errorlevel 1 goto wait_again
 
 echo NearBites is ready at http://127.0.0.1:8080
@@ -40,5 +46,15 @@ exit /b 1
 
 :setup
 echo Dependencies are missing. Run SETUP-WINDOWS.bat first.
+pause
+exit /b 1
+
+:build_failed
+echo NearBites website build failed. Check the error above.
+pause
+exit /b 1
+
+:website_conflict
+echo Another process is using port 8080. Close it, then run Start Windows again.
 pause
 exit /b 1
