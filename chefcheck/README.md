@@ -16,6 +16,10 @@ class would add a third imbalance for nothing.
 Every image comes from a live public dataset. Nothing here is synthetic, stubbed, or
 placeholder. Sources are declared in [`sources.yaml`](sources.yaml) and downloaded by
 `prepare_dataset.py`; all eight are Roboflow Universe projects under **CC BY 4.0**.
+The recorded training run used six of these sources. The handoff notes that
+`hygiene_check` and `sabina_hairnet` were downloaded but not merged into that run;
+see [`HANDOFF.md`](HANDOFF.md) for its split counts. Running the current preparation
+script across all eight sources would create a different dataset.
 
 | source | images | why it is in the mix |
 |---|---|---|
