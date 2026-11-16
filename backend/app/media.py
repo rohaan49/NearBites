@@ -1,18 +1,22 @@
 import io
 import os
+import hashlib
+import secrets
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .database import get_db
+from .capture_quality import inspect_capture
 from .models import Kitchen, ProofSubmission, StoredFile, User
-from .security import current_user
+from .security import current_user, decode_token, issue_token
 
 
 router = APIRouter()
@@ -72,6 +76,50 @@ async def upload_image(
         "url": str(request.url_for("public_image", file_id=record.id)),
         "content_type": record.content_type,
     }
+
+
+@router.post("/uploads/camera-challenge")
+def camera_challenge(user: CurrentUser, db: Db) -> dict:
+    if not user.email_verified or db.scalar(select(Kitchen.id).where(Kitchen.owner_id == user.id)) is None:
+        raise HTTPException(403, "Seller account required")
+    code = f"{secrets.randbelow(1000000):06d}"
+    return {"code": code, "token": issue_token(user.id, "dish_camera_challenge", 10, extra={"code": code})}
+
+
+@router.post("/uploads/camera-images", status_code=201)
+async def upload_camera_image(
+    request: Request,
+    file: Annotated[UploadFile, File()],
+    challenge_token: Annotated[str, Form()],
+    user: CurrentUser,
+    db: Db,
+) -> dict:
+    if not user.email_verified or db.scalar(select(Kitchen.id).where(Kitchen.owner_id == user.id)) is None:
+        raise HTTPException(403, "Seller account required")
+    claims = decode_token(challenge_token, "dish_camera_challenge")
+    if claims["sub"] != user.id or not str(claims.get("code", "")).isdigit():
+        raise HTTPException(403, "Start a new photo challenge")
+    if file.content_type not in IMAGE_TYPES:
+        raise HTTPException(422, "Capture a JPEG, PNG, or WebP image")
+    data = await file.read(10_000_001)
+    if not data or len(data) > 10_000_000:
+        raise HTTPException(422, "Camera image must be under 10 MB")
+    try:
+        _, issue = inspect_capture(data)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if issue:
+        raise HTTPException(422, issue)
+    digest = hashlib.sha256(data).hexdigest()
+    if db.scalar(select(StoredFile.id).where(StoredFile.sha256 == digest)):
+        raise HTTPException(409, "This exact image was uploaded before. Capture today's food again")
+    record = save_file(db, user, data, "fresh-dish.jpg", file.content_type, "image", public=True)
+    record.source = "camera"
+    record.challenge_code = claims["code"]
+    record.sha256 = digest
+    record.created_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"url": str(request.url_for("public_image", file_id=record.id)), "captured_at": record.created_at}
 
 
 @router.get("/media/{file_id}")

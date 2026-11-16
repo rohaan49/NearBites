@@ -21,7 +21,7 @@ password_hash = PasswordHash.recommended()
 bearer = HTTPBearer(auto_error=False)
 
 
-def issue_token(user_id: str, kind: str, minutes: int, session_id: str | None = None) -> str:
+def issue_token(user_id: str, kind: str, minutes: int, session_id: str | None = None, extra: dict | None = None) -> str:
     payload = {
         "sub": user_id,
         "typ": kind,
@@ -29,6 +29,8 @@ def issue_token(user_id: str, kind: str, minutes: int, session_id: str | None = 
     }
     if session_id:
         payload["jti"] = session_id
+    if extra:
+        payload.update(extra)
     return jwt.encode(payload, SECRET, algorithm="HS256")
 
 

@@ -106,3 +106,4 @@ class OrderStatusIn(BaseModel):
 class DecisionIn(BaseModel):
     decision: Literal["approve", "reject"]
     reason: str | None = Field(default=None, max_length=500)
+    photo_code_confirmed: bool = False

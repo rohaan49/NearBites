@@ -35,6 +35,10 @@ function Dashboard() {
     name: "", description: "", price_pkr: "", portion_size: "regular", portions_available: "", tag: "",
   });
   const [photo, setPhoto] = useState<File | null>(null);
+  const [photoToken, setPhotoToken] = useState<string | null>(null);
+  const [refreshFor, setRefreshFor] = useState<string | null>(null);
+  const [refreshPhoto, setRefreshPhoto] = useState<File | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [stockDraft, setStockDraft] = useState<Record<string, string>>({});
   const [costDraft, setCostDraft] = useState<Record<string, string>>({});
@@ -86,7 +90,12 @@ function Dashboard() {
       if (!photo) throw new Error("Add a real photo of the dish.");
       const form = new FormData();
       form.append("file", photo);
-      const uploaded = await api.post<{ url: string }>("/uploads/images", form);
+      const liveSeller = user?.email !== "order-test-seller@demo.nearbites.invalid";
+      if (liveSeller) {
+        if (!photoToken) throw new Error("Capture a fresh dish photo with the in-app camera.");
+        form.append("challenge_token", photoToken);
+      }
+      const uploaded = await api.post<{ url: string }>(liveSeller ? "/uploads/camera-images" : "/uploads/images", form);
       const created = await api.post<Dish>("/seller/listings", {
         name: listingForm.name,
         description: listingForm.description,
@@ -99,6 +108,7 @@ function Dashboard() {
       setListings((current) => [...current, created]);
       setListingForm({ name: "", description: "", price_pkr: "", portion_size: "regular", portions_available: "", tag: "" });
       setPhoto(null);
+      setPhotoToken(null);
       setMessage("Listing sent for admin review.");
       await load();
     } catch (err) {
@@ -106,6 +116,22 @@ function Dashboard() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const updateDailyPhoto = async (dish: Dish) => {
+    if (!refreshPhoto || !refreshToken) { setError("Capture today's food photo first."); return; }
+    setBusy(true); setError("");
+    try {
+      const form = new FormData();
+      form.append("file", refreshPhoto);
+      form.append("challenge_token", refreshToken);
+      const uploaded = await api.post<{ url: string }>("/uploads/camera-images", form);
+      await api.patch(`/seller/listings/${dish.id}`, { image_url: uploaded.url });
+      setRefreshFor(null); setRefreshPhoto(null); setRefreshToken(null);
+      setMessage("Today's photo submitted for admin review. The dish can be ordered after approval.");
+      await load();
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not update today's photo"); }
+    finally { setBusy(false); }
   };
 
   const advance = async (order: Order, status: string) => {
@@ -251,6 +277,11 @@ function Dashboard() {
                         </button>
                       )}
                     </div>
+                    {dish.photo_policy_required && <div className="mt-3 rounded-xl bg-secondary/60 p-3 text-xs">
+                      <p>{dish.fresh_photo ? `${t("Today's camera photo:")} ${dish.photo_captured_at ? new Date(dish.photo_captured_at).toLocaleString() : t("captured")}` : t("Today's food photo is needed before buyers can order.")}</p>
+                      <button type="button" onClick={() => { setRefreshFor(dish.id); setRefreshPhoto(null); setRefreshToken(null); }} className="mt-2 rounded-lg border border-border px-3 py-1 font-semibold">{t("Capture today's food photo")}</button>
+                      {refreshFor === dish.id && <div className="mt-2 space-y-2"><DishPhotoPicker photo={refreshPhoto} onChange={setRefreshPhoto} cameraOnly onCaptureToken={setRefreshToken} /><button type="button" disabled={busy || !refreshPhoto} onClick={() => void updateDailyPhoto(dish)} className="rounded-lg bg-primary px-3 py-2 font-semibold text-primary-foreground disabled:opacity-50">{t("Submit photo for review")}</button></div>}
+                    </div>}
                     <div className="mt-3 flex flex-wrap items-end gap-2"><label className="text-xs">{t("Your cost per portion (optional, private)")}
                       <input type="number" min="0" value={costDraft[dish.id] ?? (dish.cost_per_portion_pkr == null ? "" : String(dish.cost_per_portion_pkr))} onChange={(event) => setCostDraft((current) => ({ ...current, [dish.id]: event.target.value }))} placeholder={t("Rs")} className="ms-2 w-24 rounded-lg border border-border bg-background px-2 py-1" />
                     </label><button type="button" onClick={() => void saveCost(dish)} className="rounded-lg bg-secondary px-2 py-1 text-xs">{t("Save cost")}</button></div>
@@ -276,7 +307,7 @@ function Dashboard() {
                 <select value={listingForm.portion_size} onChange={(event) => setListingForm((current) => ({ ...current, portion_size: event.target.value }))} className="w-full rounded-xl border border-border bg-background p-3 text-sm">
                   <option value="small">{t("Small")}</option><option value="regular">{t("Regular")}</option><option value="large">{t("Large")}</option>
                 </select>
-                <DishPhotoPicker photo={photo} onChange={setPhoto} />
+                <DishPhotoPicker photo={photo} onChange={setPhoto} cameraOnly={user?.email !== "order-test-seller@demo.nearbites.invalid"} onCaptureToken={setPhotoToken} />
                 <button disabled={busy} className="rounded-xl bg-gradient-spice px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{t("Submit for review")}</button>
               </form>
             )}

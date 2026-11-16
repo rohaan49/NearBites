@@ -138,6 +138,10 @@ def dish_out(dish: Dish) -> dict:
         "price_pkr": dish.price_pkr,
         "portion_size": dish.portion_size,
         "image_url": dish.image_url,
+        "photo_captured_at": dish.photo_captured_at,
+        "photo_challenge_code": dish.photo_challenge_code,
+        "photo_policy_required": dish.photo_policy_required,
+        "fresh_photo": fresh_dish_photo(dish),
         "portions_available": dish.portions_available,
         "portions_total": dish.portions_total,
         "tag": dish.tag,
@@ -193,7 +197,17 @@ def own_kitchen(db: Session, user: User) -> Kitchen:
     return kitchen
 
 
-def validate_listing_image(db: Session, user: User, image_url: str | None) -> str:
+def fresh_dish_photo(dish: Dish) -> bool:
+    if not dish.photo_policy_required:
+        return True
+    if dish.photo_captured_at is None:
+        return False
+    captured = dish.photo_captured_at.replace(tzinfo=timezone.utc) if dish.photo_captured_at.tzinfo is None else dish.photo_captured_at
+    age = datetime.now(timezone.utc) - captured
+    return timedelta(0) <= age <= timedelta(hours=24)
+
+
+def validate_listing_image(db: Session, user: User, image_url: str | None) -> tuple[str, datetime | None, str | None]:
     if not image_url:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Upload a real dish photo")
     path = urlparse(image_url).path
@@ -203,8 +217,12 @@ def validate_listing_image(db: Session, user: User, image_url: str | None) -> st
     stored = db.get(StoredFile, file_id)
     if stored is None or stored.owner_id != user.id or stored.kind != "public_image":
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Use your uploaded dish photo")
+    if user.email != "order-test-seller@demo.nearbites.invalid":
+        captured = stored.created_at.replace(tzinfo=timezone.utc) if stored.created_at.tzinfo is None else stored.created_at
+        if stored.source != "camera" or not stored.challenge_code or datetime.now(timezone.utc) - captured > timedelta(minutes=10):
+            raise HTTPException(422, "Capture a fresh photo in the app before submitting this dish")
     base = os.getenv("API_PUBLIC_BASE_URL", "http://127.0.0.1:8000/api/v1").rstrip("/")
-    return f"{base}/media/{file_id}"
+    return f"{base}/media/{file_id}", stored.created_at if stored.source == "camera" else None, stored.challenge_code
 
 
 def order_with_items(db: Session, order_id: str) -> Order:
@@ -241,7 +259,7 @@ def priced_lines(db: Session, lines: list, address_id: str, buyer_id: str) -> tu
     subtotal = 0
     for line in lines:
         dish = dishes[line.dish_id]
-        if dish.status != "approved" or dish.portions_available < line.quantity:
+        if dish.status != "approved" or dish.portions_available < line.quantity or not fresh_dish_photo(dish):
             raise HTTPException(status.HTTP_409_CONFLICT, f"{dish.name} is unavailable")
         subtotal += dish.price_pkr * line.quantity
         priced.append((dish, line.quantity))
@@ -481,7 +499,7 @@ def create_listing(payload: DishIn, user: CurrentUser, db: Db) -> dict:
     kitchen = own_kitchen(db, user)
     if kitchen.status != "active" or not kitchen.training_verified:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Kitchen approval and training are required")
-    image_url = validate_listing_image(db, user, payload.image_url)
+    image_url, captured_at, challenge_code = validate_listing_image(db, user, payload.image_url)
     if not image_url:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Add a dish photo before review")
     if len(payload.description.strip()) < 10:
@@ -493,6 +511,10 @@ def create_listing(payload: DishIn, user: CurrentUser, db: Db) -> dict:
     item = Dish(
         kitchen_id=kitchen.id,
         portions_total=payload.portions_available,
+        photo_captured_at=captured_at,
+        stock_photo_used_at=captured_at if payload.portions_available > 0 else None,
+        photo_challenge_code=challenge_code,
+        photo_policy_required=user.email != "order-test-seller@demo.nearbites.invalid",
         **{**payload.model_dump(), "name": payload.name.strip(), "description": payload.description.strip(), "image_url": image_url},
     )
     db.add(item)
@@ -519,7 +541,7 @@ def update_listing(listing_id: str, payload: DishPatch, user: CurrentUser, db: D
         if len(changes["description"]) < 10:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Describe the dish and its ingredients before review")
     if "image_url" in changes:
-        changes["image_url"] = validate_listing_image(db, user, changes["image_url"])
+        changes["image_url"], changes["photo_captured_at"], changes["photo_challenge_code"] = validate_listing_image(db, user, changes["image_url"])
         if not changes["image_url"]:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "A dish photo is required")
     if "name" in changes and db.scalar(select(Dish.id).where(Dish.kitchen_id == kitchen.id, Dish.id != item.id, func.lower(Dish.name) == changes["name"].strip().lower(), Dish.status.in_(["pending_review", "approved", "paused"]))):
@@ -553,6 +575,17 @@ def update_availability(
     item = db.get(Dish, listing_id)
     if item is None or item.kitchen_id != kitchen.id:
         raise not_found("Listing")
+    new_batch = payload.portions_available > item.portions_available or (item.status == "paused" and not payload.paused and payload.portions_available > 0)
+    if item.photo_policy_required and payload.portions_available > 0:
+        if not fresh_dish_photo(item):
+            raise HTTPException(409, "Capture today's food photo before making portions available")
+        if new_batch and item.stock_photo_used_at is not None and item.photo_captured_at is not None:
+            used = item.stock_photo_used_at.replace(tzinfo=timezone.utc) if item.stock_photo_used_at.tzinfo is None else item.stock_photo_used_at
+            captured = item.photo_captured_at.replace(tzinfo=timezone.utc) if item.photo_captured_at.tzinfo is None else item.photo_captured_at
+            if captured <= used:
+                raise HTTPException(409, "Capture a new food photo for the next batch of portions")
+        if new_batch:
+            item.stock_photo_used_at = datetime.now(timezone.utc)
     item.portions_available = payload.portions_available
     item.portions_total = max(item.portions_total, payload.portions_available)
     if payload.paused and item.status == "approved":
@@ -808,9 +841,14 @@ def decide_listing(listing_id: str, payload: DecisionIn, admin: Admin, db: Db) -
         raise not_found("Listing")
     if item.status != "pending_review":
         raise HTTPException(status.HTTP_409_CONFLICT, "Listing is not pending")
+    if payload.decision == "approve" and item.photo_policy_required:
+        if not fresh_dish_photo(item):
+            raise HTTPException(409, "Today's photo expired. Ask the seller to capture another")
+        if not payload.photo_code_confirmed:
+            raise HTTPException(422, "Confirm that the challenge code is visible beside the cooked food")
     if payload.decision == "reject" and not payload.reason:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Reason required")
     item.status = "approved" if payload.decision == "approve" else "rejected"
-    db.add(ModerationEvent(actor_id=admin.id, target_type="listing", target_id=item.id, action=payload.decision, reason=payload.reason))
+    db.add(ModerationEvent(actor_id=admin.id, target_type="listing", target_id=item.id, action=payload.decision, reason="Photo code confirmed" if payload.decision == "approve" and item.photo_policy_required else payload.reason))
     db.commit()
     return dish_out(item)

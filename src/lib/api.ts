@@ -129,6 +129,10 @@ export type Dish = {
   cost_per_portion_pkr?: number | null;
   portion_size: string;
   image_url: string | null;
+  photo_captured_at?: string | null;
+  photo_challenge_code?: string | null;
+  photo_policy_required?: boolean;
+  fresh_photo?: boolean;
   portions_available: number;
   portions_total: number;
   tag: string | null;

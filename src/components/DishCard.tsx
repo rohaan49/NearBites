@@ -31,6 +31,7 @@ export function DishCard({ dish }: { dish: Dish }) {
             <h3 className="font-display font-semibold text-lg">{dish.is_demo ? t(dish.name) : dish.name}</h3>
             {dish.is_sample && <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold text-secondary-foreground">{t("Sample menu")}</span>}
             {dish.is_demo && !dish.is_sample && <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">{t("Order flow test")}</span>}
+            {dish.photo_policy_required && dish.fresh_photo && <span className="inline-block rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">{t("Seller submitted today's camera photo")}</span>}
             <Link to="/vendor/$id" params={{ id: dish.vendor_id }} className="text-sm text-muted-foreground hover:text-primary">
               {dish.is_demo ? t(dish.vendor_name) : dish.vendor_name}
             </Link>
@@ -42,9 +43,10 @@ export function DishCard({ dish }: { dish: Dish }) {
           {dish.distance_km !== null && dish.distance_km !== undefined ? " · " + t("{distance} km away", { distance: dish.distance_km }) : ""}
           {dish.is_sample ? " · " + t("Preview only") : " · " + t("{count} portions available", { count: dish.portions_available })}
         </p>
+        {dish.photo_policy_required && !dish.fresh_photo && <p className="mt-2 text-xs text-amber-800">{t("Waiting for today's food photo and review.")}</p>}
         <button
           onClick={() => setConfirmOpen(true)}
-          disabled={dish.is_sample || dish.portions_available === 0}
+          disabled={dish.is_sample || dish.portions_available === 0 || (dish.photo_policy_required && !dish.fresh_photo)}
           className="mt-3 inline-flex items-center gap-1 rounded-full bg-gradient-spice px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
           {!dish.is_sample && <Plus className="h-4 w-4" />} {dish.is_sample ? t("Not available to order") : t("Add to cart")}
